@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 — Data Structures · The Container Instrument</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c1015;
+  --bg-raised:#12171e;
+  --bg-inset:#080b0f;
+  --line:#22292f;
+  --line-soft:#1a2027;
+  --ink:#e9e4d8;
+  --ink-dim:#9aa2a8;
+  --ink-faint:#5c656b;
+  --gold:#d8a24a;
+  --gold-dim:#8a6a35;
+  --teal:#5fa8a0;
+  --teal-dim:#3b6b66;
+  --rust:#c1604a;
+  --rust-dim:#7d4033;
+  --violet:#9088c4;
+  --radius:3px;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --cond:'IBM Plex Sans Condensed',sans-serif;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+}
+::selection{background:var(--gold-dim);color:#fff;}
+a{color:var(--gold);}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+@media (max-width:720px){.wrap{padding:0 18px;}}
+
+/* ============ RAIL NAV ============ */
+.rail{
+  position:fixed;top:0;left:0;bottom:0;width:64px;
+  border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;
+  padding:22px 0;z-index:50;background:var(--bg);
+}
+.rail-mark{
+  font-family:var(--cond);font-weight:700;font-size:13px;color:var(--gold);
+  writing-mode:vertical-rl;letter-spacing:0.12em;margin-bottom:28px;
+}
+.rail-dots{display:flex;flex-direction:column;gap:14px;flex:1;overflow:hidden;}
+.rail-dot{
+  width:8px;height:8px;border-radius:50%;border:1px solid var(--ink-faint);
+  cursor:pointer;transition:all .25s ease;flex-shrink:0;position:relative;
+}
+.rail-dot:hover{border-color:var(--gold);}
+.rail-dot.active{background:var(--gold);border-color:var(--gold);}
+.rail-dot .tip{
+  position:absolute;left:20px;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-dim);
+  white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;
+  background:var(--bg-raised);padding:3px 7px;border:1px solid var(--line);
+}
+.rail-dot:hover .tip{opacity:1;}
+.rail{display:none;}
+.main{margin-left:0;}
+
+/* ============ JOURNAL (floating) ============ */
+.journal{
+  position:fixed;right:18px;bottom:18px;z-index:60;
+  font-family:var(--mono);font-size:11px;
+  background:var(--bg-raised);border:1px solid var(--line);
+  min-width:190px;transition:all .3s ease;
+}
+.journal-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line-soft);
+  letter-spacing:.08em;color:var(--ink-dim);
+}
+.journal-head:hover{color:var(--ink);}
+.journal-body{padding:10px 12px;display:grid;gap:6px;}
+.journal.collapsed .journal-body{display:none;}
+.jrow{display:flex;justify-content:space-between;color:var(--ink-dim);}
+.jrow b{color:var(--ink);font-weight:500;}
+.jbar{height:3px;background:var(--line-soft);margin-top:2px;position:relative;overflow:hidden;}
+.jbar i{position:absolute;left:0;top:0;bottom:0;background:var(--teal);width:0%;transition:width .4s ease;}
+@media (max-width:640px){.journal{left:18px;right:18px;min-width:auto;}}
+
+/* ============ TYPE ============ */
+h1,h2,h3{font-family:var(--cond);font-weight:700;margin:0;color:var(--ink);}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--gold);
+  text-transform:uppercase;display:flex;align-items:center;gap:10px;
+}
+.eyebrow::before{content:'';width:22px;height:1px;background:var(--gold-dim);display:inline-block;}
+p{color:var(--ink-dim);margin:0 0 12px;}
+code, .code{font-family:var(--mono);}
+.k{color:var(--teal);}
+.s{color:var(--gold);}
+.c{color:var(--ink-faint);font-style:italic;}
+.err{color:var(--rust);}
+
+/* ============ HERO ============ */
+.hero{
+  min-height:92vh;display:flex;flex-direction:column;justify-content:center;
+  padding:100px 0 60px;position:relative;border-bottom:1px solid var(--line);
+}
+.hero-grid{position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(var(--line-soft) 1px,transparent 1px);
+  background-size:100% 42px;mask-image:linear-gradient(to bottom, black, transparent 85%);
+}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:40px;flex-wrap:wrap;position:relative;}
+.hero-title{font-size:clamp(46px,7vw,86px);line-height:0.98;margin:14px 0 18px;letter-spacing:-0.01em;}
+.hero-title em{font-style:normal;color:var(--gold);}
+.hero-sub{max-width:520px;font-size:16px;}
+.hero-meta{
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+  text-align:right;line-height:2;letter-spacing:.04em;
+}
+.hero-meta b{color:var(--ink-dim);font-weight:500;}
+
+/* Hero live instrument */
+.instrument{
+  margin-top:44px;border:1px solid var(--line);background:var(--bg-raised);
+  position:relative;
+}
+.instrument-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 16px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:.06em;
+}
+.instrument-body{padding:28px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.slots{display:flex;gap:2px;}
+.slot{
+  width:56px;height:56px;border:1px solid var(--line);background:var(--bg-inset);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:13px;position:relative;transition:all .3s ease;
+}
+.slot .ix{position:absolute;top:2px;left:4px;font-size:8px;color:var(--ink-faint);}
+.slot.new{animation:slotIn .4s ease;}
+.slot.leaving{animation:slotOut .3s ease forwards;}
+@keyframes slotIn{from{transform:translateY(-8px) scale(.9);opacity:0;background:var(--teal-dim);}to{transform:none;opacity:1;}}
+@keyframes slotOut{to{transform:translateY(8px) scale(.85);opacity:0;}}
+.btn{
+  font-family:var(--mono);font-size:11px;letter-spacing:.05em;
+  background:transparent;border:1px solid var(--line);color:var(--ink-dim);
+  padding:8px 13px;cursor:pointer;transition:all .15s ease;white-space:nowrap;
+}
+.btn:hover{border-color:var(--gold);color:var(--ink);}
+.btn:active{transform:translateY(1px);}
+.btn.primary{border-color:var(--teal-dim);color:var(--teal);}
+.btn.primary:hover{border-color:var(--teal);background:rgba(95,168,160,.08);}
+.btn.warn{border-color:var(--rust-dim);color:var(--rust);}
+.btn.warn:hover{border-color:var(--rust);background:rgba(193,96,74,.08);}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn.on{background:var(--gold);color:#0c1015;border-color:var(--gold);}
+
+/* ============ SECTIONS ============ */
+.section{padding:96px 0;border-bottom:1px solid var(--line);}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:36px;flex-wrap:wrap;}
+.section-title{font-size:clamp(28px,4vw,42px);margin-top:8px;}
+.section-tag{
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);text-align:right;
+  max-width:240px;line-height:1.6;
+}
+.lede{max-width:680px;font-size:15.5px;}
+
+/* Panel / lab shell */
+.lab{border:1px solid var(--line);background:var(--bg-raised);margin-top:28px;}
+.lab-head{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+  padding:12px 18px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:.06em;
+}
+.lab-head .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block;margin-right:8px;}
+.lab-body{padding:24px;}
+@media (max-width:640px){.lab-body{padding:16px;}}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media (max-width:800px){.two-col{grid-template-columns:1fr;}}
+
+.codebox{
+  background:var(--bg-inset);border:1px solid var(--line-soft);padding:16px 18px;
+  font-family:var(--mono);font-size:13px;line-height:1.75;overflow-x:auto;white-space:pre;
+}
+.codebox .ln{display:block;}
+.codebox .hl{background:rgba(216,162,74,.12);box-shadow:inset 2px 0 0 var(--gold);}
+
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+.controls input[type=text], .controls input[type=number]{
+  font-family:var(--mono);font-size:12px;background:var(--bg-inset);
+  border:1px solid var(--line);color:var(--ink);padding:7px 10px;width:90px;
+}
+.controls input:focus{outline:none;border-color:var(--gold-dim);}
+
+.log{
+  margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px;
+  font-family:var(--mono);font-size:12px;max-height:190px;overflow-y:auto;
+  display:flex;flex-direction:column-reverse;gap:4px;
+}
+.log-row{display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line-soft);}
+.log-row .call{color:var(--ink-dim);}
+.log-row .ret{color:var(--ink-faint);}
+.log-row .ret.mut{color:var(--teal);}
+.log-row .ret.none{color:var(--ink-faint);font-style:italic;}
+.log-row .ret.read{color:var(--gold);}
+
+.note{
+  font-size:12.5px;color:var(--ink-dim);border-left:2px solid var(--gold-dim);
+  padding:9px 14px;background:rgba(216,162,74,.05);margin-top:14px;
+}
+.note b{color:var(--gold);font-weight:600;}
+.note.teal{border-color:var(--teal-dim);background:rgba(95,168,160,.05);}
+.note.teal b{color:var(--teal);}
+.note.err{border-color:var(--rust-dim);background:rgba(193,96,74,.05);}
+.note.err b{color:var(--rust);}
+
+/* Predict block */
+.predict{border:1px solid var(--gold-dim);padding:18px 20px;background:rgba(216,162,74,.04);}
+.predict-q{font-size:14px;color:var(--ink);margin-bottom:12px;font-weight:500;}
+.predict-opts{display:flex;gap:10px;flex-wrap:wrap;}
+.popt{
+  font-family:var(--mono);font-size:12px;border:1px solid var(--line);padding:9px 14px;
+  cursor:pointer;color:var(--ink-dim);background:var(--bg-inset);transition:all .15s;
+}
+.popt:hover{border-color:var(--gold);}
+.popt.correct{border-color:var(--teal);color:var(--teal);background:rgba(95,168,160,.1);}
+.popt.wrong{border-color:var(--rust);color:var(--rust);background:rgba(193,96,74,.1);}
+.reveal{margin-top:16px;display:none;}
+.reveal.show{display:block;animation:fadeUp .35s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.misc{border:1px solid var(--rust-dim);margin-top:12px;}
+.misc-row{display:grid;grid-template-columns:120px 1fr;gap:0;border-bottom:1px solid var(--line-soft);}
+.misc-row:last-child{border-bottom:none;}
+.misc-row .lab-cell{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-faint);padding:10px 12px;border-right:1px solid var(--line-soft);}
+.misc-row .val-cell{padding:10px 14px;font-size:13px;color:var(--ink-dim);}
+.misc-row.you .lab-cell{color:var(--rust);}
+.misc-row.py .lab-cell{color:var(--teal);}
+
+/* trace scrubber */
+.trace{margin-top:16px;}
+.trace-track{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px;}
+.trace-step{
+  min-width:30px;height:26px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);cursor:pointer;transition:all .15s;padding:0 6px;
+}
+.trace-step:hover{border-color:var(--ink-dim);}
+.trace-step.current{border-color:var(--gold);color:var(--gold);background:rgba(216,162,74,.1);}
+.trace-step.done{color:var(--ink-dim);}
+.trace-transport{display:flex;gap:8px;align-items:center;}
+.trace-label{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-left:auto;}
+
+/* venn */
+.venn-wrap{display:flex;gap:28px;align-items:center;flex-wrap:wrap;}
+svg.venn{overflow:visible;}
+.venn-circ{fill-opacity:.08;stroke-width:1.5;transition:fill-opacity .2s;}
+.venn-chip{font-family:var(--mono);font-size:11px;fill:var(--ink);}
+.venn-region-btn{cursor:pointer;}
+
+/* matrix */
+.matrix-stage{display:flex;gap:60px;align-items:center;flex-wrap:wrap;position:relative;min-height:220px;}
+.mgrid{display:grid;gap:4px;position:relative;}
+.mcell{
+  width:44px;height:44px;border:1px solid var(--line);background:var(--bg-inset);
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;
+  position:relative;transition:transform .6s cubic-bezier(.65,0,.35,1), background .3s;
+}
+.mcell.moving{background:var(--teal-dim);z-index:5;}
+.mgrid-label{font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-align:center;margin-bottom:8px;letter-spacing:.08em;}
+
+/* taxonomy map */
+.taxo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:8px;}
+@media (max-width:800px){.taxo-grid{grid-template-columns:repeat(2,1fr);}}
+.taxo-card{background:var(--bg-raised);padding:22px 18px;cursor:pointer;transition:background .2s;}
+.taxo-card:hover{background:#161c24;}
+.taxo-card h4{font-family:var(--cond);font-size:19px;margin:10px 0 6px;color:var(--ink);}
+.taxo-card .axis{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:.08em;}
+.taxo-card p{font-size:12.5px;margin:0;}
+.taxo-glyph{height:44px;display:flex;align-items:center;}
+
+/* concept graph */
+.cgraph{margin-top:10px;}
+.cgraph svg text{font-family:var(--mono);}
+
+/* mobile nav pills */
+.mnav{display:block;position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;padding:10px 14px;}
+.mnav a{font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-right:16px;text-decoration:none;letter-spacing:.05em;}
+
+footer{padding:60px 0 100px;text-align:center;}
+footer p{font-family:var(--mono);font-size:11px;color:var(--ink-faint);}
+
+.lvl-nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;}
+.lvl-pill{
+  font-family:var(--mono);font-size:11px;padding:6px 12px;border:1px solid var(--line);
+  color:var(--ink-faint);cursor:pointer;
+}
+.lvl-pill.active{border-color:var(--gold);color:var(--gold);}
+.lvl-pill.done{color:var(--teal);border-color:var(--teal-dim);}
+.lvl-panel{display:none;}
+.lvl-panel.show{display:block;animation:fadeUp .3s ease;}
+</style>
+</head>
+<body>
+
+<nav class="rail">
+  <div class="rail-mark">SECTION&nbsp;05</div>
+  <div class="rail-dots" id="railDots"></div>
+</nav>
+
+<div class="mnav" id="mnav"></div>
+
+<div class="journal collapsed" id="journal">
+  <div class="journal-head" id="journalHead">
+    <span>JOURNAL</span><span id="journalToggle">▴</span>
+  </div>
+  <div class="journal-body">
+    <div class="jrow">experiments run<b id="jExp">0</b></div>
+    <div class="jrow">predictions made<b id="jPred">0</b></div>
+    <div class="jrow">correct — first try<b id="jCorrect">0</b></div>
+    <div class="jrow">misconceptions surfaced<b id="jMiss">0</b></div>
+    <div class="jbar"><i id="jBar"></i></div>
+  </div>
+</div>
+
+<div class="main">
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="hero">
+    <div class="hero-grid"></div>
+    <div class="hero-top">
+      <div>
+        <div class="eyebrow">Section 05 · Ordered, Unordered, Mapped</div>
+        <h1 class="hero-title">Data<br><em>Structures.</em></h1>
+        <p class="hero-sub">Every Python container is a decision about two questions: <b style="color:var(--ink)">does order matter</b>, and <b style="color:var(--ink)">can it change after it's built</b>. This section is a bench for testing that decision against real behavior — not reading about it.</p>
+      </div>
+      <div class="hero-meta">
+        <div>CONTAINERS <b>list · tuple · set · dict</b></div>
+        <div>MECHANISM <b>index / key / membership</b></div>
+        <div>MODE <b>predict → run → inspect</b></div>
+      </div>
+    </div>
+
+    <div class="instrument">
+      <div class="instrument-bar">
+        <span>LIVE OBJECT — <span style="color:var(--gold)">fruits</span> : list</span>
+        <span id="heroState">len = 3</span>
+      </div>
+      <div class="instrument-body">
+        <div class="slots" id="heroSlots"></div>
+        <button class="btn primary" id="heroAppend">append('kiwi')</button>
+        <button class="btn warn" id="heroPop">pop()</button>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-left:auto;">this is Section 5's whole subject: containers, and what happens to them → <a href="#taxonomy" style="color:var(--gold);text-decoration:none;">see the family ↓</a></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAXONOMY ============ -->
+  <section class="section" id="taxonomy" data-nav="Taxonomy">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">The container family</div>
+        <h2 class="section-title">Two axes decide everything.</h2>
+      </div>
+      <div class="section-tag">Every method, bug, and idiom below is a consequence of where a container sits on these two axes.</div>
+    </div>
+    <p class="lede">Order and mutability aren't just properties — they're what each container is <em>for</em>. Click one to jump to its lab.</p>
+
+    <div class="taxo-grid">
+      <div class="taxo-card" data-jump="lab-list">
+        <div class="taxo-glyph"><svg width="90" height="30"><g id="g-list"></g></svg></div>
+        <div class="axis">ORDERED · MUTABLE</div>
+        <h4>list</h4>
+        <p>Slots addressed by position. Grows, shrinks, reorders in place.</p>
+      </div>
+      <div class="taxo-card" data-jump="lab-tuple">
+        <div class="taxo-glyph"><svg width="90" height="30"><g id="g-tuple"></g></svg></div>
+        <div class="axis">ORDERED · IMMUTABLE</div>
+        <h4>tuple</h4>
+        <p>Slots addressed by position, sealed at creation. The container can't change — its contents might.</p>
+      </div>
+      <div class="taxo-card" data-jump="lab-set">
+        <div class="taxo-glyph"><svg width="90" height="30"><g id="g-set"></g></svg></div>
+        <div class="axis">UNORDERED · UNIQUE</div>
+        <h4>set</h4>
+        <p>No slots, no order — only membership. Duplicates are structurally impossible.</p>
+      </div>
+      <div class="taxo-card" data-jump="lab-dict">
+        <div class="taxo-glyph"><svg width="90" height="30"><g id="g-dict"></g></svg></div>
+        <div class="axis">MAPPED · MUTABLE</div>
+        <h4>dict</h4>
+        <p>Slots addressed by key instead of position. Insertion order is remembered, but lookup ignores it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: LIST METHODS ============ -->
+  <section class="section" id="lab-list" data-nav="List methods">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 01 — LIST</div>
+        <h2 class="section-title">Every mutator returns nothing.</h2>
+      </div>
+      <div class="section-tag">This is the single most consequential design rule for mutable containers in Python. It cannot be discovered by reading — only by watching a return value disappear.</div>
+    </div>
+    <p class="lede">Below is a real list object, seeded with <code>fruits = ['orange','apple','pear','banana','kiwi','apple','banana']</code>. Every button below calls a real method on it. Watch two things: the <span style="color:var(--teal)">slots</span>, and the <span style="color:var(--ink-faint)">return value</span> logged underneath.</p>
+
+    <div class="lab">
+      <div class="lab-head"><span><span class="dot"></span>OBJECT INSPECTOR</span><span id="listMeta">len = 7</span></div>
+      <div class="lab-body">
+        <div class="slots" id="listSlots" style="flex-wrap:wrap;"></div>
+        <div class="controls">
+          <input type="text" id="listVal" placeholder="value" value="grape">
+          <button class="btn primary" data-op="append">append(v)</button>
+          <button class="btn primary" data-op="insert">insert(0, v)</button>
+          <button class="btn warn" data-op="remove">remove(v)</button>
+          <button class="btn warn" data-op="pop">pop()</button>
+          <button class="btn" data-op="index">index(v)</button>
+          <button class="btn" data-op="count">count(v)</button>
+          <button class="btn primary" data-op="sort">sort()</button>
+          <button class="btn primary" data-op="reverse">reverse()</button>
+          <button class="btn" data-op="copy">copy()</button>
+          <button class="btn warn" data-op="clear">clear()</button>
+        </div>
+        <div class="log" id="listLog"></div>
+        <div class="note" id="listNote"><b>watch for it —</b> call <code>sort()</code> or <code>reverse()</code>, then look at the log: the return value is <span style="color:var(--ink-faint);font-style:italic">None</span>, gold-colored calls like <code>index()</code>/<code>count()</code> read without touching the slots at all.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: STACK / QUEUE ============ -->
+  <section class="section" id="lab-stack" data-nav="Stack vs queue">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 02 — LIST AS STACK / QUEUE</div>
+        <h2 class="section-title">Same object, opposite cost.</h2>
+      </div>
+      <div class="section-tag">A list is excellent at one end and expensive at the other. This is not a style preference — it's a memory-layout fact you can watch.</div>
+    </div>
+    <p class="lede">A stack only ever touches the <em>end</em> of the list — cheap. A queue built from a plain list has to touch the <em>front</em> — every removal or insertion there re-shifts every remaining element. Run both and count the shifts.</p>
+
+    <div class="two-col">
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot" style="background:var(--teal)"></span>STACK — LIFO, <code>append</code> / <code>pop()</code></span><span id="stackCost">0 shifts</span></div>
+        <div class="lab-body">
+          <div class="slots" id="stackSlots"></div>
+          <div class="controls">
+            <button class="btn primary" id="stackPush">push</button>
+            <button class="btn warn" id="stackPop">pop() — from top</button>
+            <button class="btn" id="stackReset">reset</button>
+          </div>
+          <div class="note teal"><b>O(1)</b> — the top of a list is also its end. Nothing else moves.</div>
+        </div>
+      </div>
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot" style="background:var(--rust)"></span>QUEUE FROM A LIST — FIFO, <code>insert(0,v)</code> / <code>pop(0)</code></span><span id="queueCost">0 shifts</span></div>
+        <div class="lab-body">
+          <div class="slots" id="queueSlots"></div>
+          <div class="controls">
+            <button class="btn primary" id="queuePush">arrive — insert(0,v)</button>
+            <button class="btn warn" id="queuePop">leave — pop(0)</button>
+            <button class="btn" id="queueReset">reset</button>
+          </div>
+          <div class="note err"><b>O(n)</b> — every other element has to slide over to keep index 0 free. Each slide below is one counted shift.</div>
+        </div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:16px;"><b>the fix —</b> <code>collections.deque</code> keeps pointers at both ends instead of shifting: <code>queue.popleft()</code> is O(1), the same cost as the stack's <code>pop()</code>. Same idea, no cost.</div>
+  </section>
+
+  <!-- ============ LAB: COMPREHENSIONS ============ -->
+  <section class="section" id="lab-comp" data-nav="Comprehensions">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 03 — LIST COMPREHENSIONS</div>
+        <h2 class="section-title">They look like the loop. They don't scope like the loop.</h2>
+      </div>
+      <div class="section-tag">Predict before you run. Most people get the second question wrong the first time — that's the point.</div>
+    </div>
+
+    <div class="predict" id="predict1">
+      <div class="predict-q">01 / 02 — This runs to completion. What does the last line print?</div>
+      <div class="codebox"><span class="ln"><span class="k">squares</span> = []</span><span class="ln"><span class="k">for</span> x <span class="k">in</span> range(5):</span><span class="ln">    squares.append(x ** 2)</span><span class="ln"><span class="k">print</span>(x)</span></div>
+      <div class="predict-opts">
+        <div class="popt" data-v="4">prints <code>4</code></div>
+        <div class="popt" data-v="err">raises <code>NameError</code></div>
+      </div>
+      <div class="reveal" id="reveal1">
+        <div class="note teal"><b>correct — <code>4</code>.</b> A plain <code>for</code> loop has no scope of its own. <code>x</code> is bound in the same namespace that runs the loop, so it simply keeps its last value: <code>4</code>, the final item <code>range(5)</code> produced before the loop ended.</div>
+      </div>
+    </div>
+
+    <div class="predict" id="predict2" style="margin-top:16px;opacity:.4;pointer-events:none;">
+      <div class="predict-q">02 / 02 — Now the equivalent comprehension. Same question.</div>
+      <div class="codebox"><span class="ln"><span class="k">squares</span> = [x ** 2 <span class="k">for</span> x <span class="k">in</span> range(5)]</span><span class="ln"><span class="k">print</span>(x)</span></div>
+      <div class="predict-opts">
+        <div class="popt" data-v="4">prints <code>4</code></div>
+        <div class="popt" data-v="err">raises <code>NameError</code></div>
+      </div>
+      <div class="reveal" id="reveal2"></div>
+    </div>
+
+    <div class="lab" style="margin-top:24px;">
+      <div class="lab-head"><span><span class="dot"></span>COMPREHENSION TRACE — <code>[x*2 for x in vec if x >= 0]</code></span><span id="compOut">output: []</span></div>
+      <div class="lab-body">
+        <p style="margin-bottom:10px;font-size:13px;">Source: <code style="color:var(--ink)">vec = [-4, -2, 0, 2, 4]</code>. Step through it exactly the way Python does: pull the next item, test the <code>if</code>, then evaluate the expression only if it passes.</p>
+        <div class="trace-track" id="compTrack"></div>
+        <div class="trace-transport">
+          <button class="btn" id="compReset">reset</button>
+          <button class="btn" id="compStep">step →</button>
+          <button class="btn primary" id="compPlay">play</button>
+          <span class="trace-label" id="compLabel">i = -1 · not started</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab" style="margin-top:20px;">
+      <div class="lab-head"><span><span class="dot"></span>NESTED COMPREHENSION — TRANSPOSE A MATRIX</span><span id="matStatus">3×4 → 4×3</span></div>
+      <div class="lab-body">
+        <p style="font-size:13px;margin-bottom:6px;"><code style="color:var(--ink)">[[row[i] for row in matrix] for i in range(4)]</code> — the inner comprehension runs once per value the outer <code>for i</code> produces.</p>
+        <div class="matrix-stage" id="matStage"></div>
+        <div class="controls">
+          <button class="btn primary" id="matRun">run the transpose</button>
+          <button class="btn" id="matReset">reset</button>
+        </div>
+        <div class="note"><b>in practice —</b> <code>list(zip(*matrix))</code> does the same thing with a built-in. Prefer it; the nested comprehension above exists here so you can see <em>why</em> it works.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: TUPLES ============ -->
+  <section class="section" id="lab-tuple" data-nav="Tuples">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 04 — TUPLE</div>
+        <h2 class="section-title">The seal is on the container, not the contents.</h2>
+      </div>
+      <div class="section-tag">A tuple can never gain, lose, or swap a slot. It says nothing about what's sitting inside those slots.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot"></span>PACK / UNPACK</span></div>
+        <div class="lab-body">
+          <div class="codebox">t = 12345, 54321, <span class="s">'hello!'</span></div>
+          <div id="tupPack" class="slots" style="margin-top:14px;"></div>
+          <div class="controls">
+            <button class="btn primary" id="tupUnpack">x, y, z = t</button>
+            <button class="btn" id="tupResetBtn">reset</button>
+          </div>
+          <div id="tupVars" style="display:flex;gap:10px;margin-top:14px;min-height:56px;"></div>
+        </div>
+      </div>
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot" style="background:var(--rust)"></span>THE IMMUTABILITY BOUNDARY</span></div>
+        <div class="lab-body">
+          <div class="codebox">v = ([1, 2, 3], [3, 2, 1])</div>
+          <div id="tupBound" class="slots" style="margin-top:14px;"></div>
+          <div class="controls">
+            <button class="btn warn" id="tupReassign">try: v[0] = 99</button>
+            <button class="btn primary" id="tupMutate">try: v[0].append(4)</button>
+            <button class="btn" id="tupBoundReset">reset</button>
+          </div>
+          <div id="tupResult"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: SETS ============ -->
+  <section class="section" id="lab-set" data-nav="Sets">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 05 — SET</div>
+        <h2 class="section-title">No slots. Only membership.</h2>
+      </div>
+      <div class="section-tag">Type two words. Every letter becomes a unique element, positioned by which set(s) it belongs to — not by any order.</div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><span><span class="dot"></span><code>a = set(word1)</code> · <code>b = set(word2)</code></span></div>
+      <div class="lab-body">
+        <div class="controls" style="margin-bottom:6px;">
+          <input type="text" id="setA" value="abracadabra" style="width:150px;">
+          <input type="text" id="setB" value="alacazam" style="width:150px;">
+        </div>
+        <div class="venn-wrap">
+          <svg class="venn" width="360" height="230" id="vennSvg"></svg>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn" data-set-op="union">a | b — union</button>
+            <button class="btn" data-set-op="inter">a &amp; b — intersection</button>
+            <button class="btn" data-set-op="diff">a - b — difference</button>
+            <button class="btn" data-set-op="symdiff">a ^ b — symmetric diff</button>
+            <button class="btn" data-set-op="none">clear highlight</button>
+          </div>
+        </div>
+        <div class="codebox" id="setResult" style="margin-top:14px;">select an operation above</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: DICT ============ -->
+  <section class="section" id="lab-dict" data-nav="Dictionaries">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 06 — DICT</div>
+        <h2 class="section-title">Same lookup, two failure modes.</h2>
+      </div>
+      <div class="section-tag">Subscripting and <code>.get()</code> ask the same question and disagree about what to do with "no answer."</div>
+    </div>
+    <p class="lede">Seed: <code>tel = {'jack': 4098, 'sape': 4139}</code>.</p>
+
+    <div class="two-col">
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot"></span>OBJECT INSPECTOR</span><span id="dictMeta">2 keys</span></div>
+        <div class="lab-body">
+          <div id="dictSlots" style="display:flex;flex-direction:column;gap:6px;"></div>
+          <div class="controls">
+            <input type="text" id="dictKey" placeholder="key" style="width:70px;" value="guido">
+            <input type="text" id="dictValInput" placeholder="value" style="width:70px;" value="4127">
+            <button class="btn primary" id="dictSet">tel[key] = value</button>
+            <button class="btn warn" id="dictDel">del tel[key]</button>
+          </div>
+          <div class="log" id="dictLog"></div>
+        </div>
+      </div>
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot" style="background:var(--rust)"></span>COMPARE — <code>d[key]</code> vs <code>d.get(key)</code></span></div>
+        <div class="lab-body">
+          <div class="controls" style="margin-bottom:6px;">
+            <input type="text" id="dictLookup" placeholder="key to look up" style="width:120px;" value="irv">
+            <button class="btn" id="dictCompare">look up on both</button>
+          </div>
+          <div class="two-col" style="gap:12px;">
+            <div class="codebox" id="dictApproachA" style="min-height:70px;">tel['irv']</div>
+            <div class="codebox" id="dictApproachB" style="min-height:70px;">tel.get('irv')</div>
+          </div>
+          <div class="note err"><b>difference —</b> subscripting treats a missing key as a program error and stops execution; <code>.get()</code> treats it as an expected outcome and hands back <code>None</code> (or a default you supply).</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: LOOPING TECHNIQUES ============ -->
+  <section class="section" id="lab-loop" data-nav="Looping techniques">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 07 — LOOPING TECHNIQUES</div>
+        <h2 class="section-title">Five ways to ask "what's next?"</h2>
+      </div>
+      <div class="section-tag">Each pulls a different shape out of a container. Step through and watch what each one actually hands the loop variable.</div>
+    </div>
+    <div class="lab">
+      <div class="lab-head" style="flex-wrap:wrap;">
+        <span style="display:flex;gap:6px;flex-wrap:wrap;" id="loopTabs"></span>
+      </div>
+      <div class="lab-body">
+        <div class="codebox" id="loopCode"></div>
+        <div class="controls">
+          <button class="btn" id="loopReset">reset</button>
+          <button class="btn primary" id="loopStep">step →</button>
+        </div>
+        <div class="codebox" id="loopOutput" style="margin-top:12px;min-height:60px;color:var(--ink-faint);">output ›</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: MUTATION TRAP ============ -->
+  <section class="section" id="lab-trap" data-nav="The mutation trap">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 08 — THE ITERATION TRAP</div>
+        <h2 class="section-title">Deleting from a list while walking it skips a neighbor.</h2>
+      </div>
+      <div class="section-tag">This is the bug behind the doc's warning: "it is often simpler and safer to create a new list instead."</div>
+    </div>
+    <p class="lede">Source: <code style="color:var(--ink)">raw_data = [56.2, NaN, 51.7, 55.3, 52.5, NaN, 47.8]</code>. Goal: drop the <code>NaN</code>s.</p>
+    <div class="two-col">
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot" style="background:var(--rust)"></span>APPROACH A — delete while iterating</span></div>
+        <div class="lab-body">
+          <div class="codebox">for i, v <span class="k">in</span> enumerate(raw_data):
+    if isnan(v):
+        del raw_data[i]</div>
+          <div class="slots" id="trapASlots" style="margin-top:12px;flex-wrap:wrap;"></div>
+          <div class="controls"><button class="btn warn" id="trapARun">run it</button><button class="btn" id="trapAReset">reset</button></div>
+          <div class="note err" id="trapAResult" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="lab">
+        <div class="lab-head"><span><span class="dot" style="background:var(--teal)"></span>APPROACH B — build a new list</span></div>
+        <div class="lab-body">
+          <div class="codebox">filtered = []
+for v <span class="k">in</span> raw_data:
+    if <span class="k">not</span> isnan(v):
+        filtered.append(v)</div>
+          <div class="slots" id="trapBSlots" style="margin-top:12px;flex-wrap:wrap;"></div>
+          <div class="controls"><button class="btn primary" id="trapBRun">run it</button><button class="btn" id="trapBReset">reset</button></div>
+          <div class="note teal" id="trapBResult" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB: CONDITIONS ============ -->
+  <section class="section" id="lab-cond" data-nav="Conditions">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Lab 09 — SHORT-CIRCUIT EVALUATION</div>
+        <h2 class="section-title"><code>and</code> / <code>or</code> stop as soon as they know the answer.</h2>
+      </div>
+      <div class="section-tag">The returned value is whichever operand evaluation stopped on — not necessarily <code>True</code> or <code>False</code>.</div>
+    </div>
+    <div class="lab">
+      <div class="lab-head"><span><span class="dot"></span><code>non_null = string1 or string2 or string3</code></span></div>
+      <div class="lab-body">
+        <p style="font-size:13px;">Set each operand — empty string is falsy, anything else is truthy. Then run the trace.</p>
+        <div class="controls">
+          <input type="text" id="opA" value="" placeholder="string1 (try empty)" style="width:150px;">
+          <input type="text" id="opB" value="Trondheim" placeholder="string2" style="width:150px;">
+          <input type="text" id="opC" value="Hammer Dance" placeholder="string3" style="width:150px;">
+          <button class="btn primary" id="condRun">evaluate</button>
+        </div>
+        <div class="trace-track" id="condTrack" style="margin-top:16px;"></div>
+        <div class="codebox" id="condResult" style="margin-top:10px;">non_null = ?</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINAL SYNTHESIS ============ -->
+  <section class="section" id="lab-final" data-nav="Final challenge">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Synthesis</div>
+        <h2 class="section-title">One problem. Every container.</h2>
+      </div>
+      <div class="section-tag">Six levels, same snippet. No level unlocks fake progress — each is graded on the actual answer.</div>
+    </div>
+
+    <div class="codebox" style="margin-bottom:20px;">records = [
+    {<span class="s">'name'</span>: <span class="s">'Ada'</span>,   <span class="s">'tags'</span>: [<span class="s">'math'</span>, <span class="s">'logic'</span>]},
+    {<span class="s">'name'</span>: <span class="s">'Grace'</span>, <span class="s">'tags'</span>: [<span class="s">'navy'</span>, <span class="s">'compiler'</span>]},
+    {<span class="s">'name'</span>: <span class="s">'Ada'</span>,   <span class="s">'tags'</span>: [<span class="s">'math'</span>, <span class="s">'poetry'</span>]},
+]
+names = {r[<span class="s">'name'</span>] <span class="k">for</span> r <span class="k">in</span> records}
+tags  = [t <span class="k">for</span> r <span class="k">in</span> records <span class="k">for</span> t <span class="k">in</span> r[<span class="s">'tags'</span>]]</div>
+
+    <div class="lvl-nav" id="lvlNav"></div>
+    <div id="lvlHost"></div>
+  </section>
+
+  <!-- ============ MENTAL MODEL MAP ============ -->
+  <section class="section" id="lab-map" data-nav="Mental model" style="border-bottom:none;">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Synthesis</div>
+        <h2 class="section-title">The mental model.</h2>
+      </div>
+      <div class="section-tag">Everything above collapses to two questions asked of every container.</div>
+    </div>
+    <div class="lab"><div class="lab-body"><svg id="mapSvg" width="100%" height="420" viewBox="0 0 1000 420"></svg></div></div>
+  </section>
+
+  <footer>
+    <p>SECTION 05 — DATA STRUCTURES · an instrument, not a document</p>
+  </footer>
+
+</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- shared helpers ---------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; return e; }
+
+/* ---------- Journal (in-memory, session only) ---------- */
+const Journal = {
+  experiments:0, predictions:0, correct:0, mistakes:0,
+  record(type, correct){
+    if(type==='exp') this.experiments++;
+    if(type==='pred'){ this.predictions++; if(correct) this.correct++; else this.mistakes++; }
+    this.render();
+  },
+  render(){
+    $('#jExp').textContent = this.experiments;
+    $('#jPred').textContent = this.predictions;
+    $('#jCorrect').textContent = this.correct;
+    $('#jMiss').textContent = this.mistakes;
+    const pct = this.predictions ? Math.round(100*this.correct/this.predictions) : 0;
+    $('#jBar').style.width = pct+'%';
+  }
+};
+$('#journalHead').addEventListener('click', ()=>{
+  const j = $('#journal');
+  j.classList.toggle('collapsed');
+  $('#journalToggle').textContent = j.classList.contains('collapsed') ? '▴' : '▾';
+});
+
+/* ---------- Rail nav + mobile nav, built from sections ---------- */
+const navSections = $$('.section[data-nav]');
+const railDots = $('#railDots');
+const mnav = $('#mnav');
+navSections.forEach(s=>{
+  const dot = el('div','rail-dot');
+  dot.innerHTML = `<span class="tip">${s.dataset.nav}</span>`;
+  dot.addEventListener('click',()=>s.scrollIntoView({behavior:'smooth'}));
+  dot.dataset.target = s.id;
+  railDots.appendChild(dot);
+  const a = el('a', null, s.dataset.nav);
+  a.href = '#'+s.id;
+  mnav.appendChild(a);
+});
+const dotEls = $$('.rail-dot', railDots);
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      dotEls.forEach(d=>d.classList.toggle('active', d.dataset.target===en.target.id));
+    }
+  });
+},{rootMargin:'-40% 0px -50% 0px'});
+navSections.forEach(s=>io.observe(s));
+
+$$('.taxo-card').forEach(c=>{
+  c.addEventListener('click',()=>{
+    const t = document.getElementById(c.dataset.jump);
+    if(t) t.scrollIntoView({behavior:'smooth'});
+  });
+});
+
+/* ---------- taxonomy glyphs (small SVGs, drawn not decorated) ---------- */
+function glyphList(g){
+  for(let i=0;i<4;i++){
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x', i*22); r.setAttribute('y',4); r.setAttribute('width',18); r.setAttribute('height',18);
+    r.setAttribute('fill','none'); r.setAttribute('stroke','#d8a24a'); r.setAttribute('stroke-width','1.2');
+    g.appendChild(r);
+  }
+}
+function glyphTuple(g){
+  const outer=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  outer.setAttribute('x',0);outer.setAttribute('y',2);outer.setAttribute('width',88);outer.setAttribute('height',22);
+  outer.setAttribute('fill','none');outer.setAttribute('stroke','#9aa2a8');outer.setAttribute('stroke-width','1.2');
+  g.appendChild(outer);
+  for(let i=1;i<4;i++){
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',i*22);l.setAttribute('x2',i*22);l.setAttribute('y1',2);l.setAttribute('y2',24);
+    l.setAttribute('stroke','#3a4249');l.setAttribute('stroke-width','1');
+    g.appendChild(l);
+  }
+}
+function glyphSet(g){
+  const pts = [[14,10],[26,20],[40,7],[55,17],[65,9],[35,22],[20,22]];
+  const c=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  c.setAttribute('cx',44);c.setAttribute('cy',15);c.setAttribute('rx',44);c.setAttribute('ry',13);
+  c.setAttribute('fill','none');c.setAttribute('stroke','#5c656b');c.setAttribute('stroke-width','1');c.setAttribute('stroke-dasharray','3 2');
+  g.appendChild(c);
+  pts.forEach(p=>{
+    const d=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    d.setAttribute('cx',p[0]);d.setAttribute('cy',p[1]);d.setAttribute('r',2.6);
+    d.setAttribute('fill','#5fa8a0');
+    g.appendChild(d);
+  });
+}
+function glyphDict(g){
+  for(let i=0;i<3;i++){
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x', i*30); r.setAttribute('y',4); r.setAttribute('width',26); r.setAttribute('height',18);
+    r.setAttribute('fill','none'); r.setAttribute('stroke','#9088c4'); r.setAttribute('stroke-width','1.2');
+    g.appendChild(r);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', i*30+13); t.setAttribute('y',2); t.setAttribute('font-size','5'); t.setAttribute('fill','#9088c4');
+    t.setAttribute('text-anchor','middle');
+    t.textContent='key';
+    g.appendChild(t);
+  }
+}
+glyphList(document.getElementById('g-list'));
+glyphTuple(document.getElementById('g-tuple'));
+glyphSet(document.getElementById('g-set'));
+glyphDict(document.getElementById('g-dict'));
+
+/* =========================================================
+   HERO INSTRUMENT
+   ========================================================= */
+(function(){
+  let data = ['orange','apple','pear'];
+  const slotsEl = $('#heroSlots');
+  function render(){
+    slotsEl.innerHTML='';
+    data.forEach((v,i)=>{
+      const s = el('div','slot new');
+      s.innerHTML = `<span class="ix">${i}</span>${v}`;
+      slotsEl.appendChild(s);
+    });
+    $('#heroState').textContent = 'len = '+data.length;
+  }
+  render();
+  $('#heroAppend').addEventListener('click',()=>{ data.push('kiwi'); render(); Journal.record('exp'); });
+  $('#heroPop').addEventListener('click',()=>{ if(data.length){ data.pop(); render(); Journal.record('exp'); } });
+})();
+
+/* =========================================================
+   LAB 01 — LIST METHODS
+   ========================================================= */
+(function(){
+  let data = ['orange','apple','pear','banana','kiwi','apple','banana'];
+  const slotsEl = $('#listSlots');
+  const logEl = $('#listLog');
+  function render(){
+    slotsEl.innerHTML='';
+    data.forEach((v,i)=>{
+      const s = el('div','slot');
+      s.innerHTML = `<span class="ix">${i}</span>${v}`;
+      slotsEl.appendChild(s);
+    });
+    $('#listMeta').textContent = 'len = '+data.length;
+  }
+  function log(call, ret, kind){
+    const row = el('div','log-row');
+    row.innerHTML = `<span class="call">${call}</span><span class="ret ${kind}">→ ${ret}</span>`;
+    logEl.appendChild(row);
+    logEl.scrollTop = 0;
+  }
+  render();
+  $$('#lab-list [data-op]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const v = $('#listVal').value || 'x';
+      const op = btn.dataset.op;
+      let call, ret, kind='mut';
+      try{
+        if(op==='append'){ data.push(v); call=`fruits.append(${JSON.stringify(v)})`; ret='None'; kind='none'; }
+        else if(op==='insert'){ data.splice(0,0,v); call=`fruits.insert(0, ${JSON.stringify(v)})`; ret='None'; kind='none'; }
+        else if(op==='remove'){
+          const idx = data.indexOf(v);
+          if(idx===-1){ call=`fruits.remove(${JSON.stringify(v)})`; ret='ValueError: not in list'; kind='none'; }
+          else{ data.splice(idx,1); call=`fruits.remove(${JSON.stringify(v)})`; ret='None'; kind='none'; }
+        }
+        else if(op==='pop'){
+          if(!data.length){ call='fruits.pop()'; ret='IndexError: pop from empty list'; kind='none'; }
+          else{ const popped = data.pop(); call='fruits.pop()'; ret=JSON.stringify(popped); kind='mut'; }
+        }
+        else if(op==='index'){
+          const idx = data.indexOf(v);
+          call=`fruits.index(${JSON.stringify(v)})`;
+          ret = idx===-1 ? 'ValueError: not in list' : idx;
+          kind='read';
+        }
+        else if(op==='count'){
+          const c = data.filter(x=>x===v).length;
+          call=`fruits.count(${JSON.stringify(v)})`; ret=c; kind='read';
+        }
+        else if(op==='sort'){ data.sort(); call='fruits.sort()'; ret='None'; kind='none'; }
+        else if(op==='reverse'){ data.reverse(); call='fruits.reverse()'; ret='None'; kind='none'; }
+        else if(op==='copy'){ const c=data.slice(); call='fruits.copy()'; ret='['+c.map(x=>`'${x}'`).join(', ')+']  — a new list object'; kind='read'; }
+        else if(op==='clear'){ data=[]; call='fruits.clear()'; ret='None'; kind='none'; }
+      }catch(e){ ret='error'; }
+      log(call, ret, kind);
+      render();
+      Journal.record('exp');
+    });
+  });
+})();
+
+/* =========================================================
+   LAB 02 — STACK / QUEUE
+   ========================================================= */
+(function(){
+  let stack = [3,4,5];
+  let queue = [3,4,5];
+  let stackCost = 0, queueCost = 0;
+  const stackSlots = $('#stackSlots'), queueSlots = $('#queueSlots');
+  function renderStack(){
+    stackSlots.innerHTML='';
+    stack.forEach((v,i)=>{ const s=el('div','slot'); s.innerHTML=`<span class="ix">${i}</span>${v}`; stackSlots.appendChild(s); });
+    $('#stackCost').textContent = stackCost+' shifts';
+  }
+  function renderQueue(){
+    queueSlots.innerHTML='';
+    queue.forEach((v,i)=>{ const s=el('div','slot'); s.innerHTML=`<span class="ix">${i}</span>${v}`; queueSlots.appendChild(s); });
+    $('#queueCost').textContent = queueCost+' shifts';
+  }
+  renderStack(); renderQueue();
+  let sv = 6;
+  $('#stackPush').addEventListener('click',()=>{ stack.push(sv++); renderStack(); Journal.record('exp'); });
+  $('#stackPop').addEventListener('click',()=>{ if(stack.length){ stack.pop(); renderStack(); Journal.record('exp'); } });
+  $('#stackReset').addEventListener('click',()=>{ stack=[3,4,5]; stackCost=0; sv=6; renderStack(); });
+  let qv = 6;
+  $('#queuePush').addEventListener('click',()=>{ queueCost += queue.length; queue.unshift(qv++); renderQueue(); Journal.record('exp'); });
+  $('#queuePop').addEventListener('click',()=>{ if(queue.length){ queueCost += queue.length-1; queue.shift(); renderQueue(); Journal.record('exp'); } });
+  $('#queueReset').addEventListener('click',()=>{ queue=[3,4,5]; queueCost=0; qv=6; renderQueue(); });
+})();
+
+/* =========================================================
+   LAB 03 — COMPREHENSIONS: predictions + misconception engine
+   ========================================================= */
+(function(){
+  let p1Answered = false;
+  $$('#predict1 .popt').forEach(opt=>{
+    opt.addEventListener('click',()=>{
+      if(p1Answered) return; p1Answered = true;
+      const correct = opt.dataset.v === '4';
+      opt.classList.add(correct?'correct':'wrong');
+      $$('#predict1 .popt').forEach(o=>{ if(o.dataset.v==='4') o.classList.add('correct'); });
+      $('#reveal1').classList.add('show');
+      Journal.record('pred', correct);
+      $('#predict2').style.opacity=1; $('#predict2').style.pointerEvents='auto';
+    });
+  });
+  let p2Answered = false;
+  $$('#predict2 .popt').forEach(opt=>{
+    opt.addEventListener('click',()=>{
+      if(p2Answered) return; p2Answered = true;
+      const chosen = opt.dataset.v;
+      const correct = chosen === 'err';
+      opt.classList.add(correct?'correct':'wrong');
+      $$('#predict2 .popt').forEach(o=>{ if(o.dataset.v==='err') o.classList.add('correct'); });
+      Journal.record('pred', correct);
+      const rev = $('#reveal2');
+      if(correct){
+        rev.innerHTML = `<div class="note teal"><b>correct — NameError.</b> A comprehension runs in its own hidden scope. <code>x</code> is created and destroyed entirely inside the brackets; the enclosing code never sees it.</div>`;
+      }else{
+        rev.innerHTML = `
+          <div class="misc">
+            <div class="misc-row you"><div class="lab-cell">YOUR MODEL</div><div class="val-cell">"A comprehension is just a loop written on one line, so <code>x</code> survives the same way."</div></div>
+            <div class="misc-row py"><div class="lab-cell">PYTHON'S MODEL</div><div class="val-cell">A comprehension opens an implicit, throwaway scope. <code>x</code> lives only inside that scope.</div></div>
+            <div class="misc-row"><div class="lab-cell">TRACE</div><div class="val-cell">1. <code>[...]</code> creates a hidden function-like scope&nbsp;·&nbsp;2. <code>x</code> is bound only inside it&nbsp;·&nbsp;3. the finished list is returned, the scope is discarded&nbsp;·&nbsp;4. <code>print(x)</code> looks in the outer scope, finds nothing → <code>NameError</code></div></div>
+          </div>`;
+        Journal.mistakes; // already recorded above
+      }
+      rev.classList.add('show');
+    });
+  });
+
+  /* comprehension trace */
+  const vec = [-4,-2,0,2,4];
+  let i = -1, built = [];
+  const track = $('#compTrack');
+  function renderTrack(){
+    track.innerHTML='';
+    vec.forEach((v,idx)=>{
+      const step = el('div','trace-step', v);
+      if(idx < i) step.classList.add('done');
+      if(idx === i) step.classList.add('current');
+      step.addEventListener('click',()=>{ i = idx-1; build(); });
+      track.appendChild(step);
+    });
+  }
+  function build(){
+    i++;
+    if(i>=vec.length){ i = vec.length; }
+    built = [];
+    for(let k=0;k<i;k++){ if(vec[k]>=0) built.push(vec[k]*2); }
+    renderTrack();
+    if(i<0 || i>=vec.length){
+      $('#compLabel').textContent = i>=vec.length ? 'done' : 'i = -1 · not started';
+    }else{
+      const v = vec[i];
+      const pass = v>=0;
+      $('#compLabel').textContent = `x = ${v} · if x>=0 → ${pass} ${pass? '· x*2 = '+(v*2)+' appended' : '· skipped'}`;
+    }
+    $('#compOut').textContent = 'output: ['+built.join(', ')+']';
+  }
+  renderTrack();
+  $('#compStep').addEventListener('click',()=>{ if(i<vec.length){ build(); Journal.record('exp'); } });
+  $('#compReset').addEventListener('click',()=>{ i=-1; built=[]; renderTrack(); $('#compLabel').textContent='i = -1 · not started'; $('#compOut').textContent='output: []'; });
+  let playTimer=null;
+  $('#compPlay').addEventListener('click',()=>{
+    if(playTimer) return;
+    Journal.record('exp');
+    playTimer = setInterval(()=>{
+      if(i>=vec.length){ clearInterval(playTimer); playTimer=null; return; }
+      build();
+    },650);
+  });
+
+  /* nested comprehension / transpose */
+  const matrix = [[1,2,3,4],[5,6,7,8],[9,10,11,12]];
+  const stage = $('#matStage');
+  let srcCells=[], dstCells=[];
+  function buildMatrices(){
+    stage.innerHTML='';
+    const srcWrap = el('div'); srcWrap.innerHTML = `<div class="mgrid-label">matrix (3×4)</div>`;
+    const srcGrid = el('div','mgrid'); srcGrid.style.gridTemplateColumns='repeat(4, 44px)';
+    srcCells = [];
+    matrix.forEach((row,r)=>row.forEach((v,c)=>{
+      const cell = el('div','mcell', v);
+      srcGrid.appendChild(cell);
+      srcCells.push({el:cell, r, c, v});
+    }));
+    srcWrap.appendChild(srcGrid);
+
+    const dstWrap = el('div'); dstWrap.innerHTML = `<div class="mgrid-label">transposed (4×3)</div>`;
+    const dstGrid = el('div','mgrid'); dstGrid.style.gridTemplateColumns='repeat(3, 44px)';
+    dstCells = [];
+    for(let i=0;i<12;i++){ const cell = el('div','mcell',''); cell.style.opacity=.25; dstGrid.appendChild(cell); dstCells.push(cell); }
+    dstWrap.appendChild(dstGrid);
+
+    stage.appendChild(srcWrap);
+    const arrow = el('div'); arrow.style.cssText='font-family:var(--mono);color:var(--ink-faint);font-size:20px;';
+    arrow.textContent='→';
+    stage.appendChild(arrow);
+    stage.appendChild(dstWrap);
+  }
+  buildMatrices();
+  $('#matRun').addEventListener('click', async ()=>{
+    Journal.record('exp');
+    $('#matStatus').textContent = 'running…';
+    let order = 0;
+    for(let i=0;i<4;i++){
+      for(let r=0;r<3;r++){
+        const src = srcCells.find(s=>s.r===r && s.c===i);
+        const destIndex = i*3+r;
+        const dest = dstCells[destIndex];
+        src.el.classList.add('moving');
+        await new Promise(res=>setTimeout(res,140));
+        dest.textContent = src.v;
+        dest.style.opacity = 1;
+        dest.style.background = 'var(--teal-dim)';
+        await new Promise(res=>setTimeout(res,120));
+        src.el.classList.remove('moving');
+        dest.style.background='';
+      }
+    }
+    $('#matStatus').textContent = 'complete — [[row[i] for row in matrix] for i in range(4)]';
+  });
+  $('#matReset').addEventListener('click', buildMatrices);
+})();
+
+/* =========================================================
+   LAB 04 — TUPLES
+   ========================================================= */
+(function(){
+  const packEl = $('#tupPack');
+  const varsEl = $('#tupVars');
+  function renderPack(){
+    packEl.innerHTML='';
+    ['12345',"54321","'hello!'"].forEach((v,i)=>{
+      const s = el('div','slot'); s.innerHTML = `<span class="ix">t[${i}]</span>${v}`;
+      s.style.borderColor = 'var(--ink-faint)';
+      packEl.appendChild(s);
+    });
+  }
+  renderPack();
+  $('#tupUnpack').addEventListener('click', ()=>{
+    varsEl.innerHTML='';
+    [['x','12345'],['y','54321'],['z',"'hello!'"]].forEach(([n,v])=>{
+      const box = el('div','slot new'); box.style.borderColor='var(--teal-dim)';
+      box.innerHTML = `<span class="ix">${n}</span>${v}`;
+      varsEl.appendChild(box);
+    });
+    Journal.record('exp');
+  });
+  $('#tupResetBtn').addEventListener('click', ()=>{ varsEl.innerHTML=''; });
+
+  const boundEl = $('#tupBound');
+  let inner0 = [1,2,3], inner1=[3,2,1];
+  function renderBound(){
+    boundEl.innerHTML='';
+    [inner0, inner1].forEach((arr,i)=>{
+      const cell = el('div');
+      cell.style.cssText='border:1px dashed var(--ink-faint);padding:6px 10px;font-family:var(--mono);font-size:12px;';
+      cell.innerHTML = `<span style="color:var(--ink-faint);font-size:10px;">v[${i}]</span><br>[${arr.join(', ')}]`;
+      boundEl.appendChild(cell);
+    });
+  }
+  renderBound();
+  $('#tupReassign').addEventListener('click', ()=>{
+    $('#tupResult').innerHTML = `
+      <div class="note err" style="margin-top:14px;">
+        <b>TypeError</b> — 'tuple' object does not support item assignment<br>
+        <span style="font-size:11.5px;">EXPECTED: a mutable target · RECEIVED: <code>v</code>, a tuple · WHY: tuples have no slot-assignment operation at all · FIX: build a new tuple, e.g. <code>v = (v[0], [9,9])</code>
+      </div>`;
+    Journal.record('exp');
+  });
+  $('#tupMutate').addEventListener('click', ()=>{
+    inner0.push(4);
+    renderBound();
+    $('#tupResult').innerHTML = `<div class="note teal" style="margin-top:14px;"><b>succeeds.</b> <code>v[0].append(4)</code> never touches <code>v</code> itself — it calls a method on the list that <code>v</code>'s first slot points to. The tuple's two slots still point to the exact same two objects they always did.</div>`;
+    Journal.record('exp');
+  });
+  $('#tupBoundReset').addEventListener('click', ()=>{ inner0=[1,2,3]; inner1=[3,2,1]; renderBound(); $('#tupResult').innerHTML=''; });
+})();
+
+/* =========================================================
+   LAB 05 — SETS (venn)
+   ========================================================= */
+(function(){
+  const svg = $('#vennSvg');
+  const NS='http://www.w3.org/2000/svg';
+  function mk(tag, attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+  function unique(str){ return Array.from(new Set(str.replace(/[^a-z]/gi,'').toLowerCase().split(''))); }
+
+  function render(){
+    svg.innerHTML='';
+    const a = new Set(unique($('#setA').value));
+    const b = new Set(unique($('#setB').value));
+    const onlyA = [...a].filter(x=>!b.has(x));
+    const onlyB = [...b].filter(x=>!a.has(x));
+    const both = [...a].filter(x=>b.has(x));
+
+    svg.appendChild(mk('circle',{cx:150,cy:110,r:100,class:'venn-circ',stroke:'#d8a24a',fill:'#d8a24a'}));
+    svg.appendChild(mk('circle',{cx:230,cy:110,r:100,class:'venn-circ',stroke:'#5fa8a0',fill:'#5fa8a0'}));
+    svg.appendChild(mk('text',{x:100,y:30,fill:'#d8a24a','font-size':11,'font-family':'IBM Plex Mono'})).textContent='a';
+    svg.appendChild(mk('text',{x:275,y:30,fill:'#5fa8a0','font-size':11,'font-family':'IBM Plex Mono'})).textContent='b';
+
+    function place(list, cx, spreadX){
+      const cols = Math.ceil(Math.sqrt(list.length||1));
+      list.forEach((ch,idx)=>{
+        const col = idx % cols, row = Math.floor(idx/cols);
+        const x = cx + (col - (cols-1)/2) * 20;
+        const y = 110 + (row - 1) * 20;
+        const t = mk('text',{x, y, class:'venn-chip', 'text-anchor':'middle', 'data-ch':ch});
+        t.textContent = ch;
+        svg.appendChild(t);
+      });
+    }
+    place(onlyA, 95);
+    place(onlyB, 285);
+    place(both, 190);
+
+    window.__vennData = {a,b,onlyA,onlyB,both};
+  }
+  ['setA','setB'].forEach(id=> $('#'+id).addEventListener('input', render));
+  render();
+
+  function fmt(list){ return '{'+list.sort().map(c=>`'${c}'`).join(', ')+'}'; }
+
+  $$('[data-set-op]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const {a,b,onlyA,onlyB,both} = window.__vennData;
+      $$('.venn-chip').forEach(c=>{ c.style.opacity=0.25; c.style.fontWeight='400'; });
+      const op = btn.dataset.setOp;
+      let highlight=[], code='', result='';
+      if(op==='union'){ highlight=[...onlyA,...onlyB,...both]; code='a | b'; result=fmt([...new Set([...a,...b])]); }
+      else if(op==='inter'){ highlight=both; code='a & b'; result=fmt(both); }
+      else if(op==='diff'){ highlight=onlyA; code='a - b'; result=fmt(onlyA); }
+      else if(op==='symdiff'){ highlight=[...onlyA,...onlyB]; code='a ^ b'; result=fmt([...onlyA,...onlyB]); }
+      else { code=''; result='select an operation above'; }
+      $$('.venn-chip').forEach(c=>{ if(highlight.includes(c.dataset.ch)){ c.style.opacity=1; c.style.fontWeight='600'; } });
+      $('#setResult').textContent = code ? `${code}\n${result}` : result;
+      if(code) Journal.record('exp');
+    });
+  });
+})();
+
+/* =========================================================
+   LAB 06 — DICT
+   ========================================================= */
+(function(){
+  let tel = {jack:4098, sape:4139};
+  const slotsEl = $('#dictSlots');
+  const logEl = $('#dictLog');
+  function render(){
+    slotsEl.innerHTML='';
+    Object.keys(tel).forEach(k=>{
+      const row = el('div');
+      row.style.cssText='display:flex;gap:10px;font-family:var(--mono);font-size:13px;border:1px solid var(--line);padding:8px 12px;align-items:center;';
+      row.innerHTML = `<span style="color:var(--violet);min-width:70px;">'${k}'</span><span style="color:var(--ink-faint);">→</span><span>${tel[k]}</span>`;
+      slotsEl.appendChild(row);
+    });
+    $('#dictMeta').textContent = Object.keys(tel).length+' keys';
+  }
+  function log(call, ret){
+    const row = el('div','log-row');
+    row.innerHTML = `<span class="call">${call}</span><span class="ret mut">→ ${ret}</span>`;
+    logEl.appendChild(row); logEl.scrollTop=0;
+  }
+  render();
+  $('#dictSet').addEventListener('click',()=>{
+    const k = $('#dictKey').value || 'x';
+    const v = $('#dictValInput').value || '0';
+    tel[k]=v; render(); log(`tel['${k}'] = ${v}`,'None'); Journal.record('exp');
+  });
+  $('#dictDel').addEventListener('click',()=>{
+    const k = $('#dictKey').value;
+    if(k in tel){ delete tel[k]; render(); log(`del tel['${k}']`,'None'); }
+    else{ log(`del tel['${k}']`,'KeyError'); }
+    Journal.record('exp');
+  });
+
+  $('#dictCompare').addEventListener('click',()=>{
+    const k = $('#dictLookup').value;
+    const A = $('#dictApproachA'), B = $('#dictApproachB');
+    if(k in tel){
+      A.innerHTML = `tel['${k}']\n<span style="color:var(--teal)">→ ${tel[k]}</span>`;
+      B.innerHTML = `tel.get('${k}')\n<span style="color:var(--teal)">→ ${tel[k]}</span>`;
+    }else{
+      A.innerHTML = `tel['${k}']\n<span class="err">→ Traceback (most recent call last):\nKeyError: '${k}'</span>`;
+      B.innerHTML = `tel.get('${k}')\n<span style="color:var(--ink-faint)">→ None</span>`;
+    }
+    Journal.record('exp');
+  });
+})();
+
+/* =========================================================
+   LAB 07 — LOOPING TECHNIQUES
+   ========================================================= */
+(function(){
+  const techniques = {
+    items: {
+      label:'items()',
+      code:`knights = {'gallahad': 'the pure', 'robin': 'the brave'}
+for k, v in knights.items():
+    print(k, v)`,
+      steps:[["gallahad","the pure"],["robin","the brave"]],
+      fmt:(s)=>`${s[0]} ${s[1]}`
+    },
+    enumerate: {
+      label:'enumerate()',
+      code:`for i, v in enumerate(['tic', 'tac', 'toe']):
+    print(i, v)`,
+      steps:[[0,'tic'],[1,'tac'],[2,'toe']],
+      fmt:(s)=>`${s[0]} ${s[1]}`
+    },
+    zip: {
+      label:'zip()',
+      code:`questions = ['name', 'quest', 'favorite color']
+answers = ['lancelot', 'the holy grail', 'blue']
+for q, a in zip(questions, answers):
+    print(f'What is your {q}? It is {a}.')`,
+      steps:[['name','lancelot'],['quest','the holy grail'],['favorite color','blue']],
+      fmt:(s)=>`What is your ${s[0]}?  It is ${s[1]}.`
+    },
+    reversed: {
+      label:'reversed()',
+      code:`for i in reversed(range(1, 10, 2)):
+    print(i)`,
+      steps:[9,7,5,3,1],
+      fmt:(s)=>s
+    },
+    sortedset: {
+      label:'sorted(set(...))',
+      code:`basket = ['apple','orange','apple','pear','orange','banana']
+for f in sorted(set(basket)):
+    print(f)`,
+      steps:['apple','banana','orange','pear'],
+      fmt:(s)=>s
+    }
+  };
+  let current='items', idx=0;
+  const tabsEl = $('#loopTabs');
+  Object.keys(techniques).forEach(key=>{
+    const b = el('button','btn', techniques[key].label);
+    b.dataset.k = key;
+    b.addEventListener('click',()=>{ current=key; idx=0; render(); });
+    tabsEl.appendChild(b);
+  });
+  function render(){
+    Array.from(tabsEl.children).forEach(b=> b.classList.toggle('on', b.dataset.k===current));
+    const t = techniques[current];
+    $('#loopCode').innerHTML = t.code.replace(/\n/g,'<br>');
+    const out = t.steps.slice(0, idx).map(t2=>techniques[current].fmt(t2)).join('\n');
+    $('#loopOutput').textContent = idx===0 ? 'output ›' : out;
+    $('#loopStep').disabled = idx>=t.steps.length;
+  }
+  render();
+  $('#loopStep').addEventListener('click',()=>{ idx = Math.min(idx+1, techniques[current].steps.length); render(); Journal.record('exp'); });
+  $('#loopReset').addEventListener('click',()=>{ idx=0; render(); });
+})();
+
+/* =========================================================
+   LAB 08 — MUTATION TRAP
+   ========================================================= */
+(function(){
+  const raw = [56.2, NaN, 51.7, 55.3, 52.5, NaN, 47.8];
+  function renderInto(target, arr, badIdxSet, skippedSet){
+    target.innerHTML='';
+    arr.forEach((v,i)=>{
+      const s = el('div','slot');
+      const isNaNv = Number.isNaN(v);
+      s.innerHTML = `<span class="ix">${i}</span>${isNaNv?'NaN':v}`;
+      if(isNaNv) s.style.borderColor='var(--rust-dim)';
+      target.appendChild(s);
+    });
+  }
+  renderInto($('#trapASlots'), raw);
+  renderInto($('#trapBSlots'), raw);
+
+  $('#trapARun').addEventListener('click', async ()=>{
+    let arr = raw.slice();
+    const target = $('#trapASlots');
+    let i=0;
+    while(i<arr.length){
+      if(Number.isNaN(arr[i])){ arr.splice(i,1); }
+      else { i++; }
+      renderInto(target, arr);
+      await new Promise(r=>setTimeout(r,220));
+    }
+    const stillNaN = arr.some(v=>Number.isNaN(v));
+    $('#trapAResult').style.display='block';
+    $('#trapAResult').innerHTML = stillNaN
+      ? `<b>bug reproduced —</b> [${arr.map(v=>Number.isNaN(v)?'NaN':v).join(', ')}] — a NaN survived. When index 1 was deleted, everything shifted left one slot, so index 1 on the next pass pointed at what used to be index 2 — the NaN that was originally at index 5 slid into a position the loop had already passed.`
+      : `[${arr.join(', ')}]`;
+    Journal.record('exp');
+  });
+  $('#trapAReset').addEventListener('click',()=>{ renderInto($('#trapASlots'), raw); $('#trapAResult').style.display='none'; });
+
+  $('#trapBRun').addEventListener('click', async ()=>{
+    let filtered = [];
+    const target = $('#trapBSlots');
+    for(const v of raw){
+      if(!Number.isNaN(v)) filtered.push(v);
+      renderInto(target, filtered);
+      await new Promise(r=>setTimeout(r,180));
+    }
+    $('#trapBResult').style.display='block';
+    $('#trapBResult').innerHTML = `<b>correct —</b> [${filtered.join(', ')}]. The source list is never touched mid-iteration, so no index ever shifts under the loop.`;
+    Journal.record('exp');
+  });
+  $('#trapBReset').addEventListener('click',()=>{ renderInto($('#trapBSlots'), []); $('#trapBResult').style.display='none'; });
+})();
+
+/* =========================================================
+   LAB 09 — SHORT CIRCUIT
+   ========================================================= */
+(function(){
+  $('#condRun').addEventListener('click',()=>{
+    const vals = [$('#opA').value, $('#opB').value, $('#opC').value];
+    const names = ['string1','string2','string3'];
+    const track = $('#condTrack');
+    track.innerHTML='';
+    let resultIdx = vals.findIndex(v=>v.length>0);
+    if(resultIdx===-1) resultIdx = vals.length-1;
+    vals.forEach((v,i)=>{
+      const step = el('div','trace-step', `${names[i]}=${v===''?"''":"'"+v+"'"}`);
+      step.style.minWidth='auto';
+      if(i<=resultIdx) step.classList.add(i===resultIdx?'current':'done');
+      else step.style.opacity=.3;
+      track.appendChild(step);
+      if(i<vals.length-1){
+        const op = el('span'); op.style.cssText='font-family:var(--mono);color:var(--ink-faint);align-self:center;padding:0 4px;';
+        op.textContent = i<resultIdx ? 'or (falsy → continue)' : 'or (stopped here)';
+        if(i>=resultIdx) op.style.opacity=.3;
+        track.appendChild(op);
+      }
+    });
+    $('#condResult').innerHTML = `non_null = ${names[resultIdx]}\n<span style="color:var(--teal)">→ ${vals[resultIdx]===''?"''":"'"+vals[resultIdx]+"'"}</span>`;
+    Journal.record('exp');
+  });
+})();
+
+/* =========================================================
+   FINAL SYNTHESIS — 6 levels
+   ========================================================= */
+(function(){
+  const records = [
+    {name:'Ada', tags:['math','logic']},
+    {name:'Grace', tags:['navy','compiler']},
+    {name:'Ada', tags:['math','poetry']},
+  ];
+  const names = new Set(records.map(r=>r.name));
+  const tags = records.flatMap(r=>r.tags);
+
+  const levels = [
+    {
+      id:'recognize', label:'01 RECOGNIZE',
+      render(host){
+        host.innerHTML = `<div class="predict-q">Which line builds a <b style="color:var(--gold)">set</b>, and which builds a <b style="color:var(--teal)">list</b>?</div>
+        <div class="predict-opts">
+          <div class="popt" data-v="right">names → set, tags → list</div>
+          <div class="popt" data-v="wrong">names → list, tags → set</div>
+        </div><div class="reveal" id="rv-recognize"></div>`;
+        bindChoice(host,'recognize','right', ()=> `<div class="note teal"><b>right.</b> <code>{...}</code> with a single expression and no colon is a <b>set</b> comprehension; <code>[...]</code> is a <b>list</b> comprehension. Same for-loop machinery, different container literal.</div>`,
+        ()=>`<div class="note err"><b>check the brackets —</b> curly braces with one expression (<code>names = {...}</code>) build a set; square brackets (<code>tags = [...]</code>) build a list.</div>`);
+      }
+    },
+    {
+      id:'predict', label:'02 PREDICT',
+      render(host){
+        host.innerHTML = `<div class="predict-q">What is <code>len(names)</code>, and what is <code>len(tags)</code>?</div>
+        <div class="predict-opts">
+          <div class="popt" data-v="right">len(names)=2, len(tags)=6</div>
+          <div class="popt" data-v="wrong">len(names)=3, len(tags)=6</div>
+          <div class="popt" data-v="wrong2">len(names)=2, len(tags)=4</div>
+        </div><div class="reveal" id="rv-predict"></div>`;
+        bindChoice(host,'predict','right', ()=>`<div class="note teal"><b>right.</b> <code>names</code> is a set — 'Ada' appears twice among the records but collapses to one element, so len is <b>2</b>. <code>tags</code> is a flat list built by a nested <code>for</code>, one entry per tag across all three records, no deduplication — <b>6</b>.</div>`,
+        ()=>`<div class="note err"><b>the set is what changes the count.</b> Three records produce two unique names ('Ada' repeats) — that's where <code>names</code> loses a member. <code>tags</code> is a list, so nothing there gets deduplicated: 2+2+2 = 6.</div>`);
+      }
+    },
+    {
+      id:'debug', label:'03 DEBUG',
+      render(host){
+        host.innerHTML = `<div class="predict-q">This variant raises an exception. Where, and why?</div>
+        <div class="codebox">tags = [t <span class="k">for</span> r <span class="k">in</span> records <span class="k">for</span> t <span class="k">in</span> r[<span class="s">'tag'</span>]]</div>
+        <div class="predict-opts">
+          <div class="popt" data-v="right">KeyError: 'tag' — the dict key is 'tags', not 'tag'</div>
+          <div class="popt" data-v="wrong">TypeError — can't iterate a dict this way</div>
+        </div><div class="reveal" id="rv-debug"></div>`;
+        bindChoice(host,'debug','right', ()=>`<div class="note teal"><b>right.</b> Each <code>r</code> is a dict with the key <code>'tags'</code>. <code>r['tag']</code> asks for a key that was never set → <code>KeyError: 'tag'</code> on the very first record.</div>`,
+        ()=>`<div class="note err"><b>re-check the key name —</b> compare <code>r['tag']</code> against the dict literals above. The dicts only ever define <code>'tags'</code>.</div>`);
+      }
+    },
+    {
+      id:'modify', label:'04 MODIFY',
+      render(host){
+        host.innerHTML = `<div class="predict-q">Which change makes <code>tags</code> unique as well, without changing its type?</div>
+        <div class="predict-opts">
+          <div class="popt" data-v="right">tags = list({t for r in records for t in r['tags']})</div>
+          <div class="popt" data-v="wrong">tags = {t for r in records for t in r['tags']}</div>
+        </div><div class="reveal" id="rv-modify"></div>`;
+        bindChoice(host,'modify','right', ()=>`<div class="note teal"><b>right.</b> Building a set comprehension first removes duplicates, then <code>list(...)</code> converts it back — <code>tags</code> stays a list, just a deduplicated one: <code>['math','logic','navy','compiler','poetry']</code> (order not guaranteed).</div>`,
+        ()=>`<div class="note err"><b>close, but the type changes.</b> Dropping the <code>list()</code> wrapper leaves <code>tags</code> as a set — the task asked to keep it a list.</div>`);
+      }
+    },
+    {
+      id:'explain', label:'05 EXPLAIN',
+      render(host){
+        host.innerHTML = `<div class="predict-q">Why does <code>names</code> end up smaller than <code>records</code>, structurally — not just "because Ada repeats"?</div>
+        <div class="predict-opts">
+          <div class="popt" data-v="right">A set can only hold one instance of any equal value — the comprehension tries to insert 'Ada' twice, and the second insert is a no-op</div>
+          <div class="popt" data-v="wrong">Python randomly drops entries when building sets from comprehensions</div>
+        </div><div class="reveal" id="rv-explain"></div>`;
+        bindChoice(host,'explain','right', ()=>`<div class="note teal"><b>right.</b> This is the actual mechanism, not a rule to memorize: a set is defined by membership, so adding a value that's already a member changes nothing. Uniqueness in Python sets isn't a filter applied afterward — it's a structural guarantee at insertion time.</div>`,
+        ()=>`<div class="note err"><b>not quite —</b> nothing about sets is random. Deduplication is a direct consequence of what "membership, no order" means: an element is either in the set or it isn't, there's no concept of "in it twice."</div>`);
+      }
+    },
+    {
+      id:'design', label:'06 DESIGN',
+      render(host){
+        host.innerHTML = `<div class="predict-q">Pick the comprehension that produces a <b>frequency count</b> of tags: <code>{'math': 2, 'logic': 1, ...}</code></div>
+        <div class="predict-opts">
+          <div class="popt" data-v="right">{t: tags.count(t) for t in set(tags)}</div>
+          <div class="popt" data-v="wrong">{t: 1 for t in tags}</div>
+        </div><div class="reveal" id="rv-design"></div>`;
+        bindChoice(host,'design','right', ()=>{
+          const freq = {}; tags.forEach(t=>freq[t]=(freq[t]||0)+1);
+          const shown = Object.entries(freq).map(([k,v])=>`'${k}': ${v}`).join(', ');
+          return `<div class="note teal"><b>right.</b> Iterating over <code>set(tags)</code> gives each distinct tag once; <code>tags.count(t)</code> supplies its frequency as the value. Result: <code>{${shown}}</code>. You've now used a list, a set, and a dict comprehension in one line.</div>`;
+        },
+        ()=>`<div class="note err"><b>that overwrites, it doesn't count —</b> <code>{t: 1 for t in tags}</code> just sets every tag's value to 1 repeatedly; duplicate keys silently overwrite, so the count information is thrown away.</div>`);
+      }
+    }
+  ];
+
+  function bindChoice(host, id, rightVal, rightMsg, wrongMsg){
+    let answered=false;
+    $$('.popt', host).forEach(opt=>{
+      opt.addEventListener('click',()=>{
+        if(answered) return; answered=true;
+        const correct = opt.dataset.v===rightVal;
+        opt.classList.add(correct?'correct':'wrong');
+        $$('.popt', host).forEach(o=>{ if(o.dataset.v===rightVal) o.classList.add('correct'); });
+        const rev = $('#rv-'+id);
+        rev.innerHTML = correct ? rightMsg() : wrongMsg();
+        rev.classList.add('show');
+        Journal.record('pred', correct);
+        markDone(id);
+      });
+    });
+  }
+
+  const nav = $('#lvlNav');
+  const host = $('#lvlHost');
+  let doneSet = new Set();
+  function markDone(id){ doneSet.add(id); Array.from(nav.children).forEach(p=>p.classList.toggle('done', doneSet.has(p.dataset.id))); }
+  function showLevel(id){
+    Array.from(nav.children).forEach(p=>p.classList.toggle('active', p.dataset.id===id));
+    const lv = levels.find(l=>l.id===id);
+    host.innerHTML='';
+    const panel = el('div','lvl-panel show');
+    host.appendChild(panel);
+    lv.render(panel);
+  }
+  levels.forEach((lv,i)=>{
+    const pill = el('div','lvl-pill', lv.label);
+    pill.dataset.id = lv.id;
+    pill.addEventListener('click',()=>showLevel(lv.id));
+    nav.appendChild(pill);
+  });
+  showLevel(levels[0].id);
+})();
+
+/* =========================================================
+   MENTAL MODEL MAP
+   ========================================================= */
+(function(){
+  const svg = $('#mapSvg');
+  const NS='http://www.w3.org/2000/svg';
+  function mk(tag, attrs, txt){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); if(txt!==undefined){e.textContent=txt;} return e; }
+  function box(x,y,w,h,label,sub,color){
+    const g = mk('g',{});
+    g.appendChild(mk('rect',{x,y,width:w,height:h,fill:'#12171e',stroke:color,'stroke-width':1.2}));
+    g.appendChild(mk('text',{x:x+w/2,y:y+h/2-3,'text-anchor':'middle','font-family':'IBM Plex Sans Condensed','font-size':15,fill:'#e9e4d8','font-weight':700},label));
+    if(sub) g.appendChild(mk('text',{x:x+w/2,y:y+h/2+15,'text-anchor':'middle','font-family':'IBM Plex Mono','font-size':9,fill:color},sub));
+    svg.appendChild(g);
+    return {cx:x+w/2, cy:y+h/2, top:y, bottom:y+h};
+  }
+  function line(x1,y1,x2,y2){
+    svg.appendChild(mk('line',{x1,y1,x2,y2,stroke:'#3a4249','stroke-width':1}));
+  }
+  const core = box(400,10,200,50,'CONTAINER','order? · mutable?','#d8a24a');
+  const list = box(60,110,180,54,'list','ordered · mutable','#d8a24a');
+  const tuple = box(270,110,180,54,'tuple','ordered · immutable','#9aa2a8');
+  const set_ = box(480,110,180,54,'set','unordered · unique','#5fa8a0');
+  const dict_ = box(690,110,220,54,'dict','mapped · mutable','#9088c4');
+  [list,tuple,set_,dict_].forEach(n=> line(core.cx, core.bottom, n.cx, n.top));
+
+  const rel = box(370,220,260,50,'RELATIONSHIPS','comprehensions · looping techniques','#d8a24a');
+  [list,tuple,set_,dict_].forEach(n=> line(n.cx, n.bottom, rel.cx, rel.top));
+
+  const state = box(230,320,220,54,'STATE','identity vs. equality · aliasing','#5fa8a0');
+  const behavior = box(550,320,220,54,'BEHAVIOR','mutation cost · scope · short-circuit','#c1604a');
+  line(rel.cx, rel.bottom, state.cx, state.top);
+  line(rel.cx, rel.bottom, behavior.cx, behavior.top);
+
+  const app = box(360,400+ -20,280,40,'APPLICATION — pick the container the shape demands','','#d8a24a');
+  line(state.cx, state.bottom, app.cx, app.top);
+  line(behavior.cx, behavior.bottom, app.cx, app.top);
+})();
+
+Journal.render();
+})();
+</script>
+</body>
+</html>

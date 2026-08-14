@@ -1,0 +1,2903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 05 · Data Structures — an observation bench</title>
+<meta name="description" content="Python's data structures, observed experimentally: predict, run, step, reverse, inspect.">
+<style>/* ============================================================
+   Section 05 — visual system
+   Chrome is an instrument: monospaced, ruled, gridded.
+   Human commentary is a serif margin note hanging in the gutter.
+   Colour is a legend, never decoration:
+     blue = a name binds      amber = an object mutates
+     violet = hashing/identity  green = output
+     red = execution stops    grey = read / inert
+   ============================================================ */
+:root {
+  --ink: #08090b;
+  --panel: #0e1114;
+  --panel2: #14181d;
+  --rule: #212830;
+  --rule-soft: #171c22;
+  --text: #dee4ea;
+  --dim: #78838f;
+  --dimmer: #4d5761;
+  --bind: #6ea8fe;
+  --mutate: #f0b429;
+  --hash: #b58cff;
+  --out: #4fd08a;
+  --err: #ff6b6b;
+  --read: #8d99a6;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --gut: 232px;
+  --lh: 21px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--ink); color: var(--text);
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  background-image: linear-gradient(var(--rule-soft) 1px, transparent 1px), linear-gradient(90deg, var(--rule-soft) 1px, transparent 1px);
+  background-size: 56px 56px; background-position: -1px -1px;
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+
+/* ---------- spine ---------- */
+#spine {
+  position: fixed; left: 0; top: 0; bottom: 0; width: 200px; padding: 22px 14px;
+  border-right: 1px solid var(--rule); background: rgba(8,9,11,.92); z-index: 40;
+  display: flex; flex-direction: column; gap: 14px;
+}
+#spine .mark { font-size: 10px; letter-spacing: .28em; color: var(--dim); }
+#spine .mark b { color: var(--mutate); font-weight: 500; }
+#spine nav { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+#spine a {
+  display: grid; grid-template-columns: 26px 1fr; align-items: baseline; gap: 6px;
+  color: var(--dim); text-decoration: none; padding: 6px 6px 6px 0; font-size: 11.5px;
+  letter-spacing: .04em; border-left: 2px solid transparent; padding-left: 8px;
+}
+#spine a i { font-style: normal; color: var(--dimmer); font-size: 10px; }
+#spine a:hover { color: var(--text); }
+#spine a.on { color: var(--text); border-left-color: var(--mutate); }
+#spine a.done i { color: var(--out); }
+#spine .meter { margin-top: auto; border-top: 1px solid var(--rule); padding-top: 12px; font-size: 10.5px; color: var(--dim); }
+#spine .meter div { display: flex; justify-content: space-between; }
+#spine .meter b { color: var(--text); font-weight: 500; }
+
+main { margin-left: 200px; max-width: 1180px; padding: 0 40px 120px; }
+@media (max-width: 900px) {
+  #spine { position: static; width: auto; flex-direction: row; align-items: center; gap: 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--rule); padding: 10px 14px; }
+  #spine nav { flex-direction: row; margin: 0; }
+  #spine a { border-left: 0; border-bottom: 2px solid transparent; padding: 4px 6px; white-space: nowrap; }
+  #spine a.on { border-bottom-color: var(--mutate); }
+  #spine .meter, #spine .mark span.long { display: none; }
+  main { margin-left: 0; padding: 0 16px 80px; }
+}
+
+/* ---------- type ---------- */
+.eyebrow { font-size: 10px; letter-spacing: .3em; color: var(--dim); text-transform: uppercase; }
+h1 { font-size: clamp(30px, 6vw, 58px); line-height: 1.02; letter-spacing: -.03em; font-weight: 500; margin: 10px 0 0; }
+h2 { font-size: clamp(19px, 3vw, 26px); font-weight: 500; letter-spacing: -.02em; margin: 0; }
+.note { font-family: var(--serif); font-size: 15px; line-height: 1.6; color: #c3ccd6; }
+.note em { color: var(--mutate); font-style: italic; }
+.gutter-note { font-family: var(--serif); font-size: 13.5px; line-height: 1.55; color: var(--dim); }
+
+/* ---------- hero ---------- */
+#hero { padding: 70px 0 40px; border-bottom: 1px solid var(--rule); }
+#hero .lede { max-width: 640px; margin-top: 18px; }
+.axes { display: grid; grid-template-columns: 1fr 320px; gap: 28px; margin-top: 40px; align-items: start; }
+@media (max-width: 820px) { .axes { grid-template-columns: 1fr; } }
+.axis { border-top: 1px solid var(--rule); padding: 14px 0; }
+.axis h3 { margin: 0 0 8px; font-size: 12px; font-weight: 500; letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+.axis .q { font-family: var(--serif); font-size: 16px; margin-bottom: 10px; color: var(--text); }
+.toggle { display: inline-flex; border: 1px solid var(--rule); }
+.toggle button { background: transparent; border: 0; color: var(--dim); font: inherit; font-size: 11.5px; padding: 6px 14px; cursor: pointer; letter-spacing: .08em; }
+.toggle button.on { background: var(--panel2); color: var(--text); box-shadow: inset 0 -2px 0 var(--mutate); }
+.verdict { border: 1px solid var(--rule); background: var(--panel); padding: 20px; position: sticky; top: 24px; }
+.verdict .type { font-size: 30px; letter-spacing: -.02em; color: var(--mutate); }
+.verdict .lit { margin-top: 8px; color: var(--text); font-size: 14px; word-break: break-all; }
+.verdict .why { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule); }
+
+/* ---------- lab shell ---------- */
+section.lab { padding: 64px 0 8px; border-bottom: 1px solid var(--rule); scroll-margin-top: 20px; }
+.lab-head { display: grid; grid-template-columns: var(--gut) 1fr; gap: 28px; align-items: start; }
+@media (max-width: 820px) { .lab-head { grid-template-columns: 1fr; gap: 10px; } }
+.lab-head .idx { font-size: 11px; letter-spacing: .24em; color: var(--dim); }
+.lab-head .idx u { display: block; text-decoration: none; color: var(--mutate); font-size: 34px; letter-spacing: -.02em; line-height: 1; margin-bottom: 6px; }
+.lab-head .thesis { max-width: 680px; }
+.lab-head .thesis .note { margin-top: 10px; }
+
+.experiments { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0 14px; }
+.experiments button {
+  background: transparent; border: 1px solid var(--rule); color: var(--dim); font: inherit; font-size: 11.5px;
+  padding: 6px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.experiments button:hover { color: var(--text); border-color: #33404d; }
+.experiments button.on { color: var(--ink); background: var(--text); border-color: var(--text); }
+.experiments button .tag { font-size: 9px; letter-spacing: .14em; opacity: .75; }
+.experiments button.on .tag { opacity: .6; }
+.tag-edge { color: var(--mutate); } .tag-invalid { color: var(--err); } .tag-surprise { color: var(--hash); }
+button.on .tag-edge, button.on .tag-invalid, button.on .tag-surprise { color: inherit; }
+
+.bench { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.bench.wide { grid-template-columns: minmax(0,1fr); }
+@media (max-width: 820px) { .bench { grid-template-columns: minmax(0,1fr); } }
+.pane { background: var(--panel); min-width: 0; }
+.pane.span { grid-column: 1 / -1; }
+.pane.span .transport { border-top: 0; }
+.pane > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; border-bottom: 1px solid var(--rule); font-size: 10px; letter-spacing: .2em; color: var(--dim);
+}
+.pane > header .right { letter-spacing: .04em; color: var(--dimmer); }
+
+/* code */
+.code { position: relative; font-size: 13px; line-height: var(--lh); }
+.code .nums { position: absolute; left: 0; top: 10px; width: 34px; text-align: right; color: var(--dimmer); font-size: 11px; line-height: var(--lh); user-select: none; }
+.code pre, .code textarea {
+  margin: 0; padding: 10px 12px 10px 44px; font: inherit; line-height: var(--lh);
+  background: transparent; color: var(--text); border: 0; width: 100%; resize: none; outline: none;
+  white-space: pre; overflow-x: auto; tab-size: 4;
+}
+.code textarea { min-height: 160px; caret-color: var(--mutate); }
+.code textarea:focus { box-shadow: inset 0 0 0 1px #2c3540; }
+.code .ln { display: block; padding-left: 4px; border-left: 2px solid transparent; }
+.code .ln.cur { background: rgba(240,180,41,.09); border-left-color: var(--mutate); }
+.code .ln.err { background: rgba(255,107,107,.11); border-left-color: var(--err); }
+.k { color: #ff8fb1; } .s { color: #93e6a6; } .n { color: #ffd479; } .c { color: var(--dimmer); font-style: italic; }
+.b { color: var(--bind); } .m { color: #d3b4ff; } .p { color: var(--dim); }
+
+/* transport */
+.transport { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--rule); background: var(--panel2); flex-wrap: wrap; }
+.transport button {
+  background: transparent; border: 1px solid var(--rule); color: var(--text); font: inherit; font-size: 11px;
+  padding: 5px 10px; cursor: pointer; letter-spacing: .1em; min-width: 34px;
+}
+.transport button:hover:not(:disabled) { border-color: var(--mutate); color: var(--mutate); }
+.transport button:disabled { color: var(--dimmer); cursor: not-allowed; }
+.transport button.primary { background: var(--mutate); border-color: var(--mutate); color: #1a1204; font-weight: 600; }
+.transport .count { margin-left: auto; font-size: 11px; color: var(--dim); letter-spacing: .06em; }
+.transport .speed { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--dim); letter-spacing: .1em; }
+
+/* ribbon */
+.ribbon { padding: 12px; border-top: 1px solid var(--rule); background: var(--panel2); }
+.ribbon .tape { display: flex; align-items: flex-end; gap: 2px; height: 34px; cursor: pointer; }
+.ribbon .tick { flex: 1 1 auto; min-width: 2px; background: var(--rule); height: 30%; transition: height .12s, opacity .12s; opacity: .55; }
+.ribbon .tick.past { opacity: 1; }
+.ribbon .tick.cur { height: 100% !important; opacity: 1; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+.tick.bind { background: var(--bind); height: 55%; }
+.tick.mutate, .tick.setop { background: var(--mutate); height: 78%; }
+.tick.output, .tick.emit { background: var(--out); height: 62%; }
+.tick.error { background: var(--err); height: 100%; }
+.tick.iter { background: #3d4a58; height: 40%; }
+.tick.compare, .tick.operand, .tick.test, .tick.probe, .tick.filter { background: var(--read); height: 48%; }
+.tick.dedup, .tick.scope, .tick.alloc, .tick.unpack, .tick.rule, .tick.skip, .tick.unbind { background: var(--hash); height: 66%; }
+.ribbon .tapelabel { font-size: 9px; letter-spacing: .2em; color: var(--dimmer); margin-bottom: 4px; }
+.ribbon .tape + .tapelabel { margin-top: 8px; }
+.ribbon .legend { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 9.5px; letter-spacing: .1em; color: var(--dimmer); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.ribbon .legend i { width: 8px; height: 8px; display: inline-block; margin-right: 5px; }
+.ribbon .now { display: flex; gap: 10px; margin-top: 10px; align-items: baseline; font-size: 12px; }
+.ribbon .now .kind { font-size: 10px; letter-spacing: .18em; padding: 2px 6px; border: 1px solid var(--rule); color: var(--dim); flex: none; }
+.ribbon .now .txt { color: var(--text); }
+.ribbon .now.error .txt { color: var(--err); }
+
+/* state */
+.state { padding: 14px 12px; min-height: 180px; display: flex; flex-direction: column; gap: 14px; }
+.varhead { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+.varhead .name { color: var(--bind); }
+.varhead .meta { color: var(--dimmer); font-size: 10px; letter-spacing: .08em; }
+.varhead .oid { color: var(--hash); font-size: 10px; }
+.cells { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.cell { border: 1px solid var(--rule); background: var(--panel2); padding: 5px 8px; min-width: 34px; text-align: center; position: relative; font-size: 12px; }
+.cell .ix { display: block; font-size: 9px; color: var(--dimmer); }
+.cell.flash { animation: flash .5s ease-out; }
+.cell.gone { animation: collapse .3s ease-in forwards; }
+@keyframes flash { from { background: var(--mutate); color: #14181d; transform: translateY(-3px); } to { background: var(--panel2); } }
+@keyframes collapse { to { opacity: 0; transform: scale(.7); } }
+.cell.locked { border-style: dashed; color: var(--dim); }
+.cell.cursor { box-shadow: 0 0 0 1px var(--mutate); }
+.scalar { color: var(--text); }
+.empty { color: var(--dimmer); font-size: 11.5px; }
+.caption { color: var(--dimmer); font-family: var(--serif); font-size: 12px; margin-top: 6px; max-width: 460px; }
+code { font-family: var(--mono); color: var(--text); font-size: .92em; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin-top: 6px; align-items: center; }
+.kv .slot { font-size: 9px; color: var(--dimmer); }
+.kv .pair { display: flex; gap: 8px; align-items: baseline; border: 1px solid var(--rule); background: var(--panel2); padding: 4px 8px; }
+.kv .pair .key { color: var(--hash); }
+.kv .pair .arrow { color: var(--dimmer); }
+.bucket { display: inline-block; font-size: 9px; color: var(--dimmer); margin-left: 6px; }
+.lattice { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.lattice .slotbox { border: 1px dashed var(--rule); padding: 4px 6px; font-size: 11px; min-width: 46px; text-align: center; color: var(--dim); }
+.lattice .slotbox.filled { border-style: solid; color: var(--text); background: rgba(181,140,255,.08); }
+.lattice .slotbox u { display: block; text-decoration: none; font-size: 9px; color: var(--dimmer); }
+
+/* readouts */
+.readouts { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-top: 0; }
+@media (max-width: 820px) { .readouts { grid-template-columns: minmax(0,1fr); } }
+.why { padding: 14px 16px; background: var(--panel); }
+.why .rule { font-family: var(--serif); font-size: 15px; line-height: 1.55; }
+.why .chain { margin-top: 12px; display: flex; flex-direction: column; gap: 0; }
+.why .chain div { font-size: 11.5px; color: var(--dim); padding-left: 14px; border-left: 1px solid var(--rule); padding-bottom: 8px; position: relative; }
+.why .chain div::before { content: ''; position: absolute; left: -3px; top: 7px; width: 5px; height: 5px; background: var(--rule); }
+.why .chain div:last-child { border-left-color: transparent; }
+.why .chain div b { color: var(--text); font-weight: 500; }
+.why .chain div.hot::before { background: var(--mutate); }
+.stdout { padding: 14px 16px; background: var(--panel); font-size: 12.5px; }
+.stdout pre { margin: 6px 0 0; white-space: pre-wrap; color: var(--out); }
+.stdout .ledger { margin-top: 12px; border-top: 1px solid var(--rule); padding-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 14px; font-size: 11px; color: var(--dim); }
+.stdout .ledger b { color: var(--text); font-weight: 500; float: right; }
+.errbox { border-left: 2px solid var(--err); padding: 10px 12px; background: rgba(255,107,107,.06); margin-top: 10px; }
+.errbox .t { color: var(--err); font-size: 12px; }
+.errbox dl { display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; margin: 10px 0 0; font-size: 11.5px; }
+.errbox dt { color: var(--dimmer); letter-spacing: .1em; font-size: 10px; padding-top: 2px; }
+.errbox dd { margin: 0; color: var(--text); }
+
+/* prediction */
+.predict { border: 1px solid var(--rule); background: var(--panel); margin: 22px 0 0; }
+.predict > div { padding: 16px; }
+.predict .q { font-family: var(--serif); font-size: 16px; margin-bottom: 12px; }
+.opts { display: flex; flex-direction: column; gap: 6px; }
+.opts button { text-align: left; background: transparent; border: 1px solid var(--rule); color: var(--text); font: inherit; font-size: 12.5px; padding: 9px 12px; cursor: pointer; }
+.opts button:hover { border-color: var(--dim); }
+.opts button.picked { border-color: var(--bind); }
+.opts button.right { border-color: var(--out); color: var(--out); }
+.opts button.wrong { border-color: var(--err); color: var(--err); }
+.opts button:disabled { cursor: default; }
+.verdictline { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.verdictline .lbl { font-size: 10px; letter-spacing: .2em; color: var(--dim); }
+.models { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); margin-top: 10px; }
+@media (max-width: 620px) { .models { grid-template-columns: 1fr; } }
+.models > div { background: var(--panel2); padding: 10px 12px; }
+.models h4 { margin: 0 0 6px; font-size: 10px; letter-spacing: .18em; font-weight: 500; color: var(--dim); }
+.models .yours { color: var(--err); font-family: var(--serif); font-size: 14px; }
+.models .pythons { color: var(--out); font-family: var(--serif); font-size: 14px; }
+
+/* depth lenses */
+.lenses { margin-top: 18px; border-top: 1px solid var(--rule); }
+.lens { border-bottom: 1px solid var(--rule); }
+.lens > button { width: 100%; text-align: left; background: transparent; border: 0; color: var(--dim); font: inherit; font-size: 11px; letter-spacing: .16em; padding: 11px 2px; cursor: pointer; display: flex; gap: 12px; align-items: center; }
+.lens > button:hover { color: var(--text); }
+.lens > button .chev { color: var(--dimmer); }
+.lens > button .who { color: var(--dimmer); font-size: 10px; margin-left: auto; letter-spacing: .1em; }
+.lens .body { display: none; padding: 0 2px 16px; max-width: 720px; }
+.lens.open .body { display: block; }
+.lens.open > button { color: var(--mutate); }
+
+/* comparison */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+@media (max-width: 820px) { .compare-grid { grid-template-columns: 1fr; } }
+.delta { border: 1px solid var(--rule); border-top: 0; padding: 14px 16px; background: var(--panel); }
+.delta table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.delta th, .delta td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule-soft); }
+.delta th { font-size: 10px; letter-spacing: .16em; color: var(--dim); font-weight: 500; }
+.delta td.win { color: var(--out); } .delta td.lose { color: var(--err); }
+.plot { width: 100%; height: 200px; display: block; }
+.plot .grid { stroke: var(--rule-soft); }
+.plot .axis { stroke: var(--rule); }
+.plot text { fill: var(--dim); font-size: 9px; font-family: var(--mono); letter-spacing: .1em; }
+
+/* synthesis */
+#synthesis { padding: 70px 0 40px; }
+.levels { display: flex; flex-wrap: wrap; gap: 4px; margin: 20px 0 16px; }
+.levels button { background: transparent; border: 1px solid var(--rule); color: var(--dim); font: inherit; font-size: 11px; padding: 7px 12px; cursor: pointer; letter-spacing: .1em; }
+.levels button.on { background: var(--text); color: var(--ink); border-color: var(--text); }
+.levels button.cleared { border-color: var(--out); color: var(--out); }
+.levels button.on.cleared { background: var(--out); color: var(--ink); }
+.task { border: 1px solid var(--rule); background: var(--panel); padding: 18px; }
+.task .prompt { font-family: var(--serif); font-size: 16px; max-width: 720px; }
+.answerbar { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.answerbar input, .answerbar textarea {
+  flex: 1 1 260px; background: var(--panel2); border: 1px solid var(--rule); color: var(--text);
+  font: inherit; font-size: 13px; padding: 9px 11px; outline: none;
+}
+.answerbar input:focus, .answerbar textarea:focus { border-color: var(--mutate); }
+.answerbar button { background: var(--mutate); border: 1px solid var(--mutate); color: #1a1204; font: inherit; font-size: 11.5px; letter-spacing: .12em; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+.result { margin-top: 12px; font-size: 12.5px; }
+.result.ok { color: var(--out); } .result.no { color: var(--err); }
+.ledger-final { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 26px; }
+.ledger-final div { background: var(--panel); padding: 14px 16px; }
+.ledger-final .n { font-size: 26px; color: var(--mutate); letter-spacing: -.02em; }
+.ledger-final .l { font-size: 10px; letter-spacing: .18em; color: var(--dim); margin-top: 4px; }
+.mastery { margin-top: 22px; display: grid; gap: 8px; }
+.mastery .row { display: grid; grid-template-columns: 200px 1fr auto; gap: 12px; align-items: center; font-size: 11.5px; color: var(--dim); }
+@media (max-width: 620px) { .mastery .row { grid-template-columns: 120px 1fr auto; } }
+.mastery .bar { height: 6px; background: var(--rule-soft); }
+.mastery .bar span { display: block; height: 100%; background: var(--mutate); transition: width .5s; }
+.map { width: 100%; height: auto; margin-top: 30px; border: 1px solid var(--rule); background: var(--panel); }
+.map .edge { stroke: var(--rule); stroke-width: 1; }
+.map .edge.live { stroke: var(--mutate); }
+.map .node rect { fill: var(--panel2); stroke: var(--rule); }
+.map .node.live rect { stroke: var(--mutate); }
+.map .node text { fill: var(--dim); font-family: var(--mono); font-size: 10px; letter-spacing: .12em; }
+.map .node.live text { fill: var(--text); }
+.map .cap { fill: var(--dimmer); font-size: 9px; letter-spacing: .2em; }
+:focus-visible { outline: 2px solid var(--mutate); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<aside id="spine">
+  <div class="mark">PATTERN<b>FORGE</b> <span class="long">· SECTION 05</span></div>
+  <nav id="nav"></nav>
+  <div class="meter" id="meter"></div>
+</aside>
+
+<main>
+  <header id="hero">
+    <div class="eyebrow">SECTION 05 · PYTHON DATA STRUCTURES · §5.1 – §5.8</div>
+    <h1>Four containers.<br>Three questions.</h1>
+    <p class="note lede">Lists, tuples, sets and dictionaries are usually taught as four vocabularies to memorise. They are better understood as four answers to the same three questions — and every method in this section falls out of the answers. Set the switches and watch which container you just described.</p>
+    <div class="axes" id="axes"></div>
+    <p class="gutter-note" style="margin-top:34px;max-width:620px">Below, each idea gets a bench. Programs on a bench really execute: the trace is generated by evaluating the source, the state panels are the actual state, and every counter is measured rather than asserted. Step forwards, step backwards, edit the code, break it on purpose. <b style="color:var(--text)">← →</b> step · <b style="color:var(--text)">space</b> run · <b style="color:var(--text)">R</b> reset.</p>
+  </header>
+
+  <div id="labs"></div>
+
+  <section id="synthesis">
+    <div class="lab-head">
+      <div class="idx"><u>07</u><span>SYNTHESIS</span></div>
+      <div class="thesis">
+        <h2>Six levels, from recognising to designing</h2>
+        <p class="note">The first four levels are checked by running your code, not by matching keywords. Level five is yours to judge — the model answer is shown either way. Level six runs against two baskets you cannot see.</p>
+      </div>
+    </div>
+    <div class="levels" id="levels"></div>
+    <div id="task-host"></div>
+    <div style="margin-top:44px" class="eyebrow">YOUR SECTION 05 RECORD</div>
+    <div id="final"></div>
+    <p class="gutter-note" style="margin-top:34px;max-width:640px">Source of truth for every rule stated here: <i>The Python Tutorial, chapter 5 — Data Structures</i>. The evaluator behind these benches implements the subset of Python this chapter teaches; it is honest about what it does not cover and raises the same errors Python raises where it does.</p>
+  </section>
+</main>
+
+<script>/* ============================================================
+   PatternForge / Section 05 — OBSERVATION CORE
+   A small, honest Python evaluator built for one purpose:
+   to emit every meaningful computational event so the UI can
+   replay, reverse and inspect it. Not a full Python. It covers
+   exactly the subset Chapter 5 teaches, and refuses the rest.
+   ============================================================ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.PyCore = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* ---------- errors ---------- */
+  function PyErr(type, msg) { this.type = type; this.msg = msg; }
+  PyErr.prototype.toString = function () { return this.type + ': ' + this.msg; };
+  var err = function (t, m) { throw new PyErr(t, m); };
+
+  /* ---------- values ---------- */
+  var ID = 1;
+  function nid() { return ID++; }
+  function resetIds() { ID = 1; }
+  var NONE = { t: 'none' };
+  var I = function (v) { return { t: 'int', v: v }; };
+  var F = function (v) { return { t: 'float', v: v }; };
+  var S = function (v) { return { t: 'str', v: v }; };
+  var B = function (v) { return { t: 'bool', v: v }; };
+  var L = function (v) { return { t: 'list', id: nid(), v: v }; };
+  var T = function (v) { return { t: 'tuple', id: nid(), v: v }; };
+  var SET = function (v) { return { t: 'set', id: nid(), v: v }; };
+  var DQ = function (v) { return { t: 'deque', id: nid(), v: v }; };
+  var D = function (k, v) { return { t: 'dict', id: nid(), k: k, val: v }; };
+  var RANGE = function (a, b, s) { return { t: 'range', id: nid(), start: a, stop: b, step: s }; };
+  var STREAM = function (kind, items, src) { return { t: 'stream', id: nid(), kind: kind, v: items, src: src || [] }; };
+
+  var CONTAINERS = { list: 1, tuple: 1, set: 1, dict: 1, deque: 1, range: 1, stream: 1 };
+  function isNum(v) { return v.t === 'int' || v.t === 'float' || v.t === 'bool'; }
+  function num(v) { return v.t === 'bool' ? (v.v ? 1 : 0) : v.v; }
+
+  function typeName(v) {
+    if (v.t === 'none') return 'NoneType';
+    if (v.t === 'stream') return v.kind;
+    return v.t;
+  }
+
+  /* ---------- repr ---------- */
+  function reprStr(s) {
+    var q = s.indexOf("'") >= 0 && s.indexOf('"') < 0 ? '"' : "'";
+    return q + s.replace(/\\/g, '\\\\').replace(new RegExp(q, 'g'), '\\' + q) + q;
+  }
+  function repr(v) {
+    switch (v.t) {
+      case 'none': return 'None';
+      case 'bool': return v.v ? 'True' : 'False';
+      case 'int': return String(v.v);
+      case 'float': return Number.isFinite(v.v) ? (Number.isInteger(v.v) ? v.v.toFixed(1) : String(v.v)) : (Number.isNaN(v.v) ? 'nan' : (v.v > 0 ? 'inf' : '-inf'));
+      case 'str': return reprStr(v.v);
+      case 'list': return '[' + v.v.map(repr).join(', ') + ']';
+      case 'tuple': return v.v.length === 1 ? '(' + repr(v.v[0]) + ',)' : '(' + v.v.map(repr).join(', ') + ')';
+      case 'set': return v.v.length === 0 ? 'set()' : '{' + v.v.map(repr).join(', ') + '}';
+      case 'deque': return 'deque([' + v.v.map(repr).join(', ') + '])';
+      case 'dict': return '{' + v.k.map(function (k, i) { return repr(k) + ': ' + repr(v.val[i]); }).join(', ') + '}';
+      case 'range': return 'range(' + v.start + ', ' + v.stop + (v.step !== 1 ? ', ' + v.step : '') + ')';
+      case 'stream': return '<' + v.kind + ' object>';
+      case 'func': return '<function ' + (v.name || '<lambda>') + '>';
+      case 'class': return "<class '" + v.name + "'>";
+    }
+    return '?';
+  }
+  function pystr(v) { return v.t === 'str' ? v.v : repr(v); }
+
+  /* ---------- equality / hashing / ordering ---------- */
+  function eq(a, b) {
+    if (isNum(a) && isNum(b)) return num(a) === num(b);
+    if (a.t !== b.t) {
+      if ((a.t === 'list' && b.t === 'tuple') || (a.t === 'tuple' && b.t === 'list')) return false;
+      if (a.t === 'none' || b.t === 'none') return false;
+    }
+    if (a.t === 'str' && b.t === 'str') return a.v === b.v;
+    if (a.t === 'none' && b.t === 'none') return true;
+    if ((a.t === 'list' || a.t === 'tuple') && a.t === b.t)
+      return a.v.length === b.v.length && a.v.every(function (x, i) { return eq(x, b.v[i]); });
+    if (a.t === 'set' && b.t === 'set')
+      return a.v.length === b.v.length && a.v.every(function (x) { return setHas(b, x); });
+    if (a.t === 'dict' && b.t === 'dict')
+      return a.k.length === b.k.length && a.k.every(function (k, i) {
+        var j = dictFind(b, k); return j >= 0 && eq(a.val[i], b.val[j]);
+      });
+    if (a.id && b.id) return a.id === b.id;
+    return false;
+  }
+  function hashKey(v) {
+    switch (v.t) {
+      case 'int': case 'float': case 'bool': return 'n:' + num(v);
+      case 'str': return 's:' + v.v;
+      case 'none': return 'N';
+      case 'tuple': return 't:(' + v.v.map(hashKey).join(',') + ')';
+      default: err('TypeError', "unhashable type: '" + typeName(v) + "'");
+    }
+  }
+  function hashable(v) { try { hashKey(v); return true; } catch (e) { return false; } }
+
+  function cmp(a, b, ctx) {
+    if (ctx) ctx.comparisons++;
+    if (isNum(a) && isNum(b)) { var x = num(a), y = num(b); return x < y ? -1 : x > y ? 1 : 0; }
+    if (a.t === 'str' && b.t === 'str') {
+      // Unicode code point ordering, character by character
+      var n = Math.min(a.v.length, b.v.length);
+      for (var i = 0; i < n; i++) {
+        var ca = a.v.codePointAt(i), cb = b.v.codePointAt(i);
+        if (ca !== cb) return ca < cb ? -1 : 1;
+      }
+      return a.v.length === b.v.length ? 0 : (a.v.length < b.v.length ? -1 : 1);
+    }
+    if (a.t === b.t && (a.t === 'list' || a.t === 'tuple')) {
+      var m = Math.min(a.v.length, b.v.length);
+      for (var j = 0; j < m; j++) {
+        var c = cmp(a.v[j], b.v[j], ctx);
+        if (c !== 0) return c;
+      }
+      return a.v.length === b.v.length ? 0 : (a.v.length < b.v.length ? -1 : 1);
+    }
+    err('TypeError', "'<' not supported between instances of '" + typeName(a) + "' and '" + typeName(b) + "'");
+  }
+
+  /* container helpers */
+  function setHas(s, v) { var k = hashKey(v); return s.v.some(function (x) { return hashKey(x) === k; }); }
+  function setAdd(s, v) { if (!setHas(s, v)) s.v.push(v); }
+  function dictFind(d, key) { var k = hashKey(key); for (var i = 0; i < d.k.length; i++) if (hashKey(d.k[i]) === k) return i; return -1; }
+
+  function iterate(v) {
+    switch (v.t) {
+      case 'list': case 'tuple': case 'set': case 'deque': case 'stream': return v.v.slice();
+      case 'str': return v.v.split('').map(S);
+      case 'dict': return v.k.slice();
+      case 'range': {
+        var out = [];
+        if (v.step > 0) for (var i = v.start; i < v.stop; i += v.step) out.push(I(i));
+        else for (var j = v.start; j > v.stop; j += v.step) out.push(I(j));
+        return out;
+      }
+    }
+    err('TypeError', "'" + typeName(v) + "' object is not iterable");
+  }
+  function lengthOf(v) {
+    if (v.t === 'dict') return v.k.length;
+    if (v.t === 'str') return v.v.length;
+    if (v.t === 'range') return iterate(v).length;
+    if (v.v) return v.v.length;
+    err('TypeError', "object of type '" + typeName(v) + "' has no len()");
+  }
+  function truthy(v) {
+    switch (v.t) {
+      case 'none': return false;
+      case 'bool': return v.v;
+      case 'int': case 'float': return num(v) !== 0;
+      case 'str': return v.v.length > 0;
+      case 'dict': return v.k.length > 0;
+      default: return v.v ? v.v.length > 0 : true;
+    }
+  }
+
+  /* deep clone preserving aliasing — this is what makes time travel honest */
+  function clone(v, seen) {
+    if (!v || typeof v !== 'object') return v;
+    if (!CONTAINERS[v.t] || v.t === 'range') return v;
+    seen = seen || new Map();
+    if (seen.has(v)) return seen.get(v);
+    var c;
+    if (v.t === 'dict') { c = { t: 'dict', id: v.id, k: [], val: [] }; seen.set(v, c); v.k.forEach(function (k, i) { c.k.push(clone(k, seen)); c.val.push(clone(v.val[i], seen)); }); }
+    else { c = { t: v.t, id: v.id, v: [], kind: v.kind }; seen.set(v, c); v.v.forEach(function (x) { c.v.push(clone(x, seen)); }); }
+    return c;
+  }
+
+  /* ============================================================
+     TOKENIZER
+     ============================================================ */
+  var OPS = ['**=', '//=', '**', '//', '<=', '>=', '==', '!=', ':=', '+=', '-=', '*=', '/=',
+    '+', '-', '*', '/', '%', '<', '>', '=', '(', ')', '[', ']', '{', '}', ',', ':', '.', '|', '&', '^', ';'];
+  var KEYWORDS = { for: 1, in: 1, if: 1, else: 1, elif: 1, not: 1, and: 1, or: 1, is: 1, del: 1, lambda: 1, while: 1, import: 1, from: 1, pass: 1, True: 1, False: 1, None: 1, break: 1, continue: 1 };
+
+  function tokenize(src) {
+    var lines = src.replace(/\t/g, '    ').split('\n');
+    var toks = [], indents = [0];
+    for (var ln = 0; ln < lines.length; ln++) {
+      var line = lines[ln], i = 0;
+      while (i < line.length && line[i] === ' ') i++;
+      if (i >= line.length || line[i] === '#') continue; // blank / comment-only
+      var ind = i;
+      if (ind > indents[indents.length - 1]) { indents.push(ind); toks.push({ k: 'INDENT', line: ln + 1 }); }
+      while (ind < indents[indents.length - 1]) { indents.pop(); toks.push({ k: 'DEDENT', line: ln + 1 }); }
+      if (ind !== indents[indents.length - 1]) err('IndentationError', 'unindent does not match any outer indentation level (line ' + (ln + 1) + ')');
+      while (i < line.length) {
+        var c = line[i];
+        if (c === ' ') { i++; continue; }
+        if (c === '#') break;
+        if (c === '"' || c === "'") {
+          var q = c, j = i + 1, buf = '';
+          while (j < line.length && line[j] !== q) {
+            if (line[j] === '\\') { var nx = line[j + 1]; buf += nx === 'n' ? '\n' : nx === 't' ? '\t' : nx; j += 2; }
+            else buf += line[j++];
+          }
+          if (j >= line.length) err('SyntaxError', 'unterminated string literal (line ' + (ln + 1) + ')');
+          toks.push({ k: 'STR', v: buf, line: ln + 1 }); i = j + 1; continue;
+        }
+        if (/[0-9]/.test(c) || (c === '.' && /[0-9]/.test(line[i + 1] || ''))) {
+          var m = /^[0-9_]*\.?[0-9_]*(e-?[0-9]+)?/i.exec(line.slice(i))[0];
+          toks.push({ k: 'NUM', v: m.replace(/_/g, ''), line: ln + 1 }); i += m.length; continue;
+        }
+        if (/[A-Za-z_]/.test(c)) {
+          var w = /^[A-Za-z_][A-Za-z0-9_]*/.exec(line.slice(i))[0];
+          toks.push({ k: KEYWORDS[w] ? w : 'NAME', v: w, line: ln + 1 }); i += w.length; continue;
+        }
+        var got = null;
+        for (var o = 0; o < OPS.length; o++) if (line.startsWith(OPS[o], i)) { got = OPS[o]; break; }
+        if (!got) err('SyntaxError', 'invalid character ' + JSON.stringify(c) + ' (line ' + (ln + 1) + ')');
+        toks.push({ k: got, line: ln + 1 }); i += got.length;
+      }
+      toks.push({ k: 'NL', line: ln + 1 });
+    }
+    while (indents.length > 1) { indents.pop(); toks.push({ k: 'DEDENT', line: lines.length }); }
+    toks.push({ k: 'EOF', line: lines.length });
+    return toks;
+  }
+
+  /* ============================================================
+     PARSER
+     ============================================================ */
+  function Parser(toks) { this.t = toks; this.p = 0; }
+  Parser.prototype = {
+    peek: function (o) { return this.t[this.p + (o || 0)]; },
+    at: function (k) { return this.t[this.p].k === k; },
+    eat: function (k) { if (this.at(k)) return this.t[this.p++]; return null; },
+    expect: function (k) {
+      if (this.at(k)) return this.t[this.p++];
+      err('SyntaxError', 'expected ' + k + ' but found ' + (this.t[this.p].v || this.t[this.p].k) + ' (line ' + this.t[this.p].line + ')');
+    },
+    program: function () { var b = []; while (!this.at('EOF')) { if (this.eat('NL')) continue; b.push(this.statement()); } return b; },
+    block: function () {
+      this.expect(':');
+      var body = [];
+      if (this.eat('NL')) {
+        this.expect('INDENT');
+        while (!this.at('DEDENT') && !this.at('EOF')) { if (this.eat('NL')) continue; body.push(this.statement()); }
+        this.eat('DEDENT');
+      } else body.push(this.statement());
+      return body;
+    },
+    statement: function () {
+      var tk = this.peek(), line = tk.line;
+      if (this.at('pass')) { this.p++; this.eat('NL'); return { k: 'pass', line: line }; }
+      if (this.at('break')) { this.p++; this.eat('NL'); return { k: 'break', line: line }; }
+      if (this.at('continue')) { this.p++; this.eat('NL'); return { k: 'continue', line: line }; }
+      if (this.at('del')) {
+        this.p++; var targets = [this.expr()];
+        while (this.eat(',')) targets.push(this.expr());
+        this.eat('NL'); return { k: 'del', targets: targets, line: line };
+      }
+      if (this.at('import') || this.at('from')) { while (!this.at('NL') && !this.at('EOF')) this.p++; this.eat('NL'); return { k: 'import', line: line }; }
+      if (this.at('for')) {
+        this.p++; var tgt = this.targetList(); this.expect('in'); var it = this.exprList();
+        var body = this.block(); return { k: 'for', target: tgt, iter: it, body: body, line: line };
+      }
+      if (this.at('while')) { this.p++; var c = this.expr(); var wb = this.block(); return { k: 'while', test: c, body: wb, line: line }; }
+      if (this.at('if')) {
+        this.p++; var cond = this.expr(); var b1 = this.block(); var arms = [[cond, b1]], orelse = null;
+        while (true) {
+          if (this.at('elif')) { this.p++; var c2 = this.expr(); arms.push([c2, this.block()]); continue; }
+          if (this.at('else')) { this.p++; orelse = this.block(); }
+          break;
+        }
+        return { k: 'if', arms: arms, orelse: orelse, line: line };
+      }
+      var e = this.exprList();
+      if (this.at('=')) {
+        var targets = [e];
+        while (this.eat('=')) targets.push(this.exprList());
+        var value = targets.pop();
+        this.eat('NL');
+        return { k: 'assign', targets: targets, value: value, line: line };
+      }
+      var aug = ['+=', '-=', '*=', '/=', '//=', '**='].filter(function (o) { return this.at(o); }, this);
+      if (aug.length) {
+        this.p++; var rhs = this.exprList(); this.eat('NL');
+        return { k: 'assign', targets: [e], value: { k: 'bin', op: aug[0].slice(0, -1), l: e, r: rhs, line: line }, line: line, aug: true };
+      }
+      this.eat('NL');
+      return { k: 'expr', value: e, line: line };
+    },
+    targetList: function () {
+      var first = this.postfix(), items = [first];
+      if (!this.at(',')) return first;
+      while (this.eat(',')) { if (this.at('in')) break; items.push(this.postfix()); }
+      return { k: 'tuple', items: items, line: first.line };
+    },
+    exprList: function () {
+      var first = this.expr(), items = [first];
+      if (!this.at(',')) return first;
+      while (this.eat(',')) { if (this.at('NL') || this.at('=') || this.at(')') || this.at(']') || this.at('EOF')) break; items.push(this.expr()); }
+      return { k: 'tuple', items: items, line: first.line };
+    },
+    expr: function () {
+      if (this.at('lambda')) {
+        var line = this.peek().line; this.p++;
+        var params = [];
+        while (this.at('NAME')) { params.push(this.expect('NAME').v); if (!this.eat(',')) break; }
+        this.expect(':'); var body = this.expr();
+        return { k: 'lambda', params: params, body: body, line: line };
+      }
+      var e = this.orExpr();
+      if (this.at('if') && !this.inComp) {
+        this.p++; var c = this.orExpr(); this.expect('else'); var alt = this.expr();
+        return { k: 'ifexp', body: e, test: c, orelse: alt, line: e.line };
+      }
+      return e;
+    },
+    orExpr: function () {
+      var l = this.andExpr(); if (!this.at('or')) return l;
+      var vals = [l]; while (this.eat('or')) vals.push(this.andExpr());
+      return { k: 'bool', op: 'or', values: vals, line: l.line };
+    },
+    andExpr: function () {
+      var l = this.notExpr(); if (!this.at('and')) return l;
+      var vals = [l]; while (this.eat('and')) vals.push(this.notExpr());
+      return { k: 'bool', op: 'and', values: vals, line: l.line };
+    },
+    notExpr: function () {
+      if (this.at('not')) { var line = this.peek().line; this.p++; return { k: 'not', operand: this.notExpr(), line: line }; }
+      return this.comparison();
+    },
+    comparison: function () {
+      var l = this.arith(), ops = [], rs = [];
+      while (true) {
+        var op = null;
+        if (this.at('<')) op = '<'; else if (this.at('>')) op = '>';
+        else if (this.at('==')) op = '=='; else if (this.at('!=')) op = '!=';
+        else if (this.at('<=')) op = '<='; else if (this.at('>=')) op = '>=';
+        else if (this.at('in')) op = 'in';
+        else if (this.at('not') && this.peek(1).k === 'in') { this.p++; op = 'not in'; }
+        else if (this.at('is')) { if (this.peek(1).k === 'not') { this.p++; op = 'is not'; } else op = 'is'; }
+        if (!op) break;
+        this.p++;
+        ops.push(op); rs.push(this.arith());
+      }
+      if (!ops.length) return l;
+      return { k: 'cmp', left: l, ops: ops, comps: rs, line: l.line };
+    },
+    arith: function () { return this.binary(0); },
+    binary: function (lvl) {
+      var LEVELS = [['|'], ['^'], ['&'], ['+', '-'], ['*', '/', '//', '%']];
+      if (lvl >= LEVELS.length) return this.unary();
+      var l = this.binary(lvl + 1);
+      while (LEVELS[lvl].some(function (o) { return this.at(o); }, this)) {
+        var op = this.peek().k; this.p++;
+        var r = this.binary(lvl + 1);
+        l = { k: 'bin', op: op, l: l, r: r, line: l.line };
+      }
+      return l;
+    },
+    unary: function () {
+      if (this.at('-')) { var line = this.peek().line; this.p++; return { k: 'neg', operand: this.unary(), line: line }; }
+      if (this.at('+')) { this.p++; return this.unary(); }
+      if (this.at('*')) { var l2 = this.peek().line; this.p++; return { k: 'star', operand: this.unary(), line: l2 }; }
+      return this.power();
+    },
+    power: function () {
+      var b = this.postfix();
+      if (this.at('**')) { this.p++; return { k: 'bin', op: '**', l: b, r: this.unary(), line: b.line }; }
+      return b;
+    },
+    postfix: function () {
+      var e = this.atom();
+      while (true) {
+        if (this.at('.')) { this.p++; var n = this.expect('NAME').v; e = { k: 'attr', obj: e, name: n, line: e.line }; continue; }
+        if (this.at('(')) {
+          this.p++; var args = [], kwargs = [];
+          while (!this.at(')')) {
+            if (this.at('NAME') && this.peek(1).k === '=') { var kn = this.expect('NAME').v; this.p++; kwargs.push([kn, this.expr()]); }
+            else args.push(this.expr());
+            if (!this.eat(',')) break;
+          }
+          this.expect(')');
+          e = { k: 'call', fn: e, args: args, kwargs: kwargs, line: e.line }; continue;
+        }
+        if (this.at('[')) {
+          this.p++;
+          var lo = null, hi = null, isSlice = false;
+          if (!this.at(':')) lo = this.exprList();
+          if (this.eat(':')) { isSlice = true; if (!this.at(']')) hi = this.expr(); }
+          this.expect(']');
+          e = isSlice ? { k: 'slice', obj: e, lo: lo, hi: hi, line: e.line } : { k: 'sub', obj: e, index: lo, line: e.line };
+          continue;
+        }
+        break;
+      }
+      return e;
+    },
+    comprehension: function (node, closer) {
+      var gens = [];
+      this.inComp = true;
+      while (this.at('for')) {
+        this.p++; var tgt = this.targetList(); this.expect('in'); var it = this.orExpr();
+        var ifs = [];
+        while (this.at('if')) { this.p++; ifs.push(this.orExpr()); }
+        gens.push({ target: tgt, iter: it, ifs: ifs });
+      }
+      this.inComp = false;
+      this.expect(closer);
+      node.gens = gens;
+      return node;
+    },
+    atom: function () {
+      var tk = this.peek(), line = tk.line;
+      if (this.at('NUM')) { this.p++; return { k: 'num', v: tk.v, line: line }; }
+      if (this.at('STR')) { this.p++; return { k: 'str', v: tk.v, line: line }; }
+      if (this.at('True')) { this.p++; return { k: 'const', v: B(true), line: line }; }
+      if (this.at('False')) { this.p++; return { k: 'const', v: B(false), line: line }; }
+      if (this.at('None')) { this.p++; return { k: 'const', v: NONE, line: line }; }
+      if (this.at('NAME')) { this.p++; return { k: 'name', v: tk.v, line: line }; }
+      if (this.at('(')) {
+        this.p++;
+        if (this.at(')')) { this.p++; return { k: 'tuple', items: [], line: line }; }
+        var first = this.expr();
+        if (this.at('for')) return this.comprehension({ k: 'comp', kind: 'gen', elt: first, line: line }, ')');
+        var items = [first], trailing = false;
+        while (this.eat(',')) { if (this.at(')')) { trailing = true; break; } items.push(this.expr()); }
+        this.expect(')');
+        if (items.length === 1 && !trailing) return items[0];
+        return { k: 'tuple', items: items, line: line };
+      }
+      if (this.at('[')) {
+        this.p++;
+        if (this.at(']')) { this.p++; return { k: 'list', items: [], line: line }; }
+        var f2 = this.expr();
+        if (this.at('for')) return this.comprehension({ k: 'comp', kind: 'list', elt: f2, line: line }, ']');
+        var it2 = [f2];
+        while (this.eat(',')) { if (this.at(']')) break; it2.push(this.expr()); }
+        this.expect(']');
+        return { k: 'list', items: it2, line: line };
+      }
+      if (this.at('{')) {
+        this.p++;
+        if (this.at('}')) { this.p++; return { k: 'dict', pairs: [], line: line }; }
+        var f3 = this.expr();
+        if (this.at(':')) {
+          this.p++; var v3 = this.expr();
+          if (this.at('for')) return this.comprehension({ k: 'comp', kind: 'dict', key: f3, elt: v3, line: line }, '}');
+          var pairs = [[f3, v3]];
+          while (this.eat(',')) { if (this.at('}')) break; var kk = this.expr(); this.expect(':'); pairs.push([kk, this.expr()]); }
+          this.expect('}');
+          return { k: 'dict', pairs: pairs, line: line };
+        }
+        if (this.at('for')) return this.comprehension({ k: 'comp', kind: 'set', elt: f3, line: line }, '}');
+        var st = [f3];
+        while (this.eat(',')) { if (this.at('}')) break; st.push(this.expr()); }
+        this.expect('}');
+        return { k: 'set', items: st, line: line };
+      }
+      err('SyntaxError', 'unexpected ' + (tk.v || tk.k) + ' (line ' + line + ')');
+    }
+  };
+
+  function parse(src) { return new Parser(tokenize(src)).program(); }
+
+  /* ============================================================
+     INTERPRETER — a generator that narrates itself
+     ============================================================ */
+  var BREAK = { sig: 'break' }, CONTINUE = { sig: 'continue' };
+
+  function Interp(opts) {
+    opts = opts || {};
+    this.scopes = [new Map()];
+    this.out = [];
+    this.stats = { shifts: 0, comparisons: 0, steps: 0, allocations: 0, probes: 0 };
+    this.limit = opts.limit || 4000;
+    this.seed = opts.seed || {};
+    for (var k in this.seed) this.scopes[0].set(k, this.seed[k]);
+  }
+
+  Interp.prototype.lookup = function (n) {
+    for (var i = this.scopes.length - 1; i >= 0; i--) if (this.scopes[i].has(n)) return this.scopes[i].get(n);
+    if (BUILTINS[n]) return { t: 'builtin', name: n };
+    err('NameError', "name '" + n + "' is not defined");
+  };
+  Interp.prototype.setVar = function (n, v) { this.scopes[this.scopes.length - 1].set(n, v); };
+  Interp.prototype.globalScope = function () { return this.scopes[0]; };
+
+  Interp.prototype.ev = function (kind, node, text, extra) {
+    var e = { kind: kind, line: node && node.line, text: text };
+    if (extra) for (var k in extra) e[k] = extra[k];
+    this.stats.steps++;
+    if (this.stats.steps > this.limit) err('RuntimeError', 'step limit reached — this experiment runs too long to trace');
+    return e;
+  };
+
+  /* ---- statements ---- */
+  Interp.prototype.execBlock = function* (body) {
+    for (var i = 0; i < body.length; i++) {
+      var r = yield* this.exec(body[i]);
+      if (r === BREAK || r === CONTINUE) return r;
+    }
+    return null;
+  };
+
+  Interp.prototype.exec = function* (st) {
+    switch (st.k) {
+      case 'pass': case 'import': return null;
+      case 'break': return BREAK;
+      case 'continue': return CONTINUE;
+      case 'expr': {
+        var v = yield* this.evalNode(st.value);
+        if (st.value.k === 'call' && v && v.t === 'none' && isMutatorCall(st.value)) {
+          yield this.ev('rule', st, 'this call returned None — it mutated in place', { badge: 'None' });
+        } else if (v && v.t !== 'none') {
+          yield this.ev('value', st, repr(v), { value: v });
+        }
+        return null;
+      }
+      case 'assign': {
+        var val = yield* this.evalNode(st.value);
+        for (var i = 0; i < st.targets.length; i++) yield* this.assign(st.targets[i], val);
+        return null;
+      }
+      case 'del': {
+        for (var d = 0; d < st.targets.length; d++) {
+          var tgt = st.targets[d];
+          if (tgt.k === 'name') {
+            this.scopes[this.scopes.length - 1].delete(tgt.v);
+            yield this.ev('unbind', st, 'del ' + tgt.v + ' — the name is gone, not the object', { name: tgt.v });
+          } else if (tgt.k === 'sub') {
+            var o = yield* this.evalNode(tgt.obj), ix = yield* this.evalNode(tgt.index);
+            if (o.t === 'dict') {
+              var j = dictFind(o, ix);
+              if (j < 0) err('KeyError', repr(ix));
+              o.k.splice(j, 1); o.val.splice(j, 1);
+              yield this.ev('mutate', st, 'removed key ' + repr(ix), { obj: o });
+            } else {
+              var idx = normIndex(o, num(ix));
+              var removed = o.v.splice(idx, 1)[0];
+              this.stats.shifts += o.v.length - idx;
+              yield this.ev('mutate', st, 'removed index ' + idx + ' (' + repr(removed) + '); ' + (o.v.length - idx) + ' element(s) shifted left', { obj: o, shifts: o.v.length - idx });
+            }
+          } else if (tgt.k === 'slice') {
+            var ob = yield* this.evalNode(tgt.obj);
+            var lo = tgt.lo ? num(yield* this.evalNode(tgt.lo)) : 0;
+            var hi = tgt.hi ? num(yield* this.evalNode(tgt.hi)) : ob.v.length;
+            lo = clampIdx(lo, ob.v.length); hi = clampIdx(hi, ob.v.length);
+            var n = Math.max(0, hi - lo);
+            ob.v.splice(lo, n);
+            this.stats.shifts += ob.v.length - lo;
+            yield this.ev('mutate', st, 'removed slice [' + lo + ':' + hi + '] — ' + n + ' element(s) gone, list object unchanged', { obj: ob });
+          }
+        }
+        return null;
+      }
+      case 'if': {
+        for (var a = 0; a < st.arms.length; a++) {
+          var c = yield* this.evalNode(st.arms[a][0]);
+          yield this.ev('test', st.arms[a][0], 'condition → ' + (truthy(c) ? 'True' : 'False'), { taken: truthy(c) });
+          if (truthy(c)) return yield* this.execBlock(st.arms[a][1]);
+        }
+        if (st.orelse) return yield* this.execBlock(st.orelse);
+        return null;
+      }
+      case 'while': {
+        while (true) {
+          var t = yield* this.evalNode(st.test);
+          if (!truthy(t)) break;
+          var r = yield* this.execBlock(st.body);
+          if (r === BREAK) break;
+        }
+        return null;
+      }
+      case 'for': {
+        var seq = yield* this.evalNode(st.iter);
+        var live = (seq.t === 'list' || seq.t === 'deque');
+        var idx2 = 0;
+        var items = live ? seq.v : iterate(seq);
+        while (idx2 < (live ? seq.v.length : items.length)) {
+          var item = live ? seq.v[idx2] : items[idx2];
+          yield* this.assign(st.target, item, true);
+          yield this.ev('iter', st, 'iteration ' + idx2 + ' → ' + repr(item), { index: idx2, item: item, live: live, source: seq });
+          var res = yield* this.execBlock(st.body);
+          if (res === BREAK) break;
+          idx2++;
+        }
+        return null;
+      }
+    }
+    return null;
+  };
+
+  Interp.prototype.assign = function* (target, val, quiet) {
+    if (target.k === 'name') {
+      this.setVar(target.v, val);
+      if (!quiet) yield this.ev('bind', target, target.v + ' → ' + repr(val), { name: target.v, value: val });
+      return;
+    }
+    if (target.k === 'tuple' || target.k === 'list') {
+      var items = iterate(val);
+      var names = target.items;
+      if (items.length !== names.length)
+        err('ValueError', items.length < names.length
+          ? 'not enough values to unpack (expected ' + names.length + ', got ' + items.length + ')'
+          : 'too many values to unpack (expected ' + names.length + ')');
+      for (var i = 0; i < names.length; i++) yield* this.assign(names[i], items[i], quiet);
+      if (!quiet) yield this.ev('unpack', target, 'unpacked ' + items.length + ' values positionally', { count: items.length });
+      return;
+    }
+    if (target.k === 'sub') {
+      var o = yield* this.evalNode(target.obj), ix = yield* this.evalNode(target.index);
+      if (o.t === 'dict') {
+        var j = dictFind(o, ix);
+        if (j >= 0) { var old = o.val[j]; o.val[j] = val; yield this.ev('mutate', target, 'key ' + repr(ix) + ' overwritten: ' + repr(old) + ' → ' + repr(val), { obj: o, key: ix, replaced: true }); }
+        else { o.k.push(ix); o.val.push(val); yield this.ev('mutate', target, 'new key ' + repr(ix) + ' appended at position ' + (o.k.length - 1), { obj: o, key: ix }); }
+        return;
+      }
+      if (o.t === 'tuple') err('TypeError', "'tuple' object does not support item assignment");
+      if (o.t === 'str') err('TypeError', "'str' object does not support item assignment");
+      var n = normIndex(o, num(ix));
+      o.v[n] = val;
+      yield this.ev('mutate', target, 'slot ' + n + ' now holds ' + repr(val), { obj: o });
+      return;
+    }
+    if (target.k === 'slice') {
+      var ob = yield* this.evalNode(target.obj);
+      var lo = target.lo ? num(yield* this.evalNode(target.lo)) : 0;
+      var hi = target.hi ? num(yield* this.evalNode(target.hi)) : ob.v.length;
+      lo = clampIdx(lo, ob.v.length); hi = clampIdx(hi, ob.v.length);
+      var incoming = iterate(val);
+      ob.v.splice.apply(ob.v, [lo, Math.max(0, hi - lo)].concat(incoming));
+      yield this.ev('mutate', target, 'slice [' + lo + ':' + hi + '] replaced by ' + incoming.length + ' element(s) — same list object', { obj: ob });
+      return;
+    }
+    err('SyntaxError', 'cannot assign to this expression');
+  };
+
+  function clampIdx(i, len) { if (i < 0) i += len; return Math.max(0, Math.min(len, i)); }
+  function normIndex(o, i) {
+    var len = o.t === 'str' ? o.v.length : o.v.length;
+    var n = i < 0 ? len + i : i;
+    if (n < 0 || n >= len) err('IndexError', (o.t === 'str' ? 'string' : o.t === 'tuple' ? 'tuple' : 'list') + ' index out of range');
+    return n;
+  }
+
+  /* ---- expressions ---- */
+  Interp.prototype.evalNode = function* (n) {
+    switch (n.k) {
+      case 'num': return n.v.indexOf('.') >= 0 || /e/i.test(n.v) ? F(parseFloat(n.v)) : I(parseInt(n.v, 10));
+      case 'str': return S(n.v);
+      case 'const': return n.v;
+      case 'name': return this.lookup(n.v);
+      case 'lambda': { var self = this; return { t: 'func', params: n.params, body: n.body, name: null, scopes: this.scopes.slice() }; }
+      case 'list': { var xs = []; for (var i = 0; i < n.items.length; i++) xs.push(yield* this.evalNode(n.items[i])); this.stats.allocations++; return L(xs); }
+      case 'tuple': { var ts = []; for (var j = 0; j < n.items.length; j++) ts.push(yield* this.evalNode(n.items[j])); return T(ts); }
+      case 'set': {
+        var s = SET([]);
+        for (var q = 0; q < n.items.length; q++) {
+          var el = yield* this.evalNode(n.items[q]);
+          var dup = setHas(s, el);
+          setAdd(s, el);
+          if (dup) yield this.ev('dedup', n, repr(el) + ' already present — set absorbs the duplicate', { value: el, obj: s });
+        }
+        this.stats.allocations++;
+        return s;
+      }
+      case 'dict': {
+        var d = D([], []);
+        for (var p = 0; p < n.pairs.length; p++) {
+          var kk = yield* this.evalNode(n.pairs[p][0]), vv = yield* this.evalNode(n.pairs[p][1]);
+          var f = dictFind(d, kk);
+          if (f >= 0) d.val[f] = vv; else { d.k.push(kk); d.val.push(vv); }
+        }
+        this.stats.allocations++;
+        return d;
+      }
+      case 'ifexp': {
+        var t = yield* this.evalNode(n.test);
+        return truthy(t) ? yield* this.evalNode(n.body) : yield* this.evalNode(n.orelse);
+      }
+      case 'not': { var o = yield* this.evalNode(n.operand); return B(!truthy(o)); }
+      case 'neg': { var u = yield* this.evalNode(n.operand); return u.t === 'float' ? F(-u.v) : I(-num(u)); }
+      case 'star': return yield* this.evalNode(n.operand);
+      case 'bool': {
+        var last = null;
+        for (var b = 0; b < n.values.length; b++) {
+          last = yield* this.evalNode(n.values[b]);
+          var stop = n.op === 'and' ? !truthy(last) : truthy(last);
+          yield this.ev('operand', n.values[b], srcOf(n.values[b]) + ' → ' + repr(last) + (stop ? '  ⟹ decided' : '  ⟹ keep going'), { value: last, decided: stop, op: n.op, slot: b });
+          if (stop) {
+            if (b < n.values.length - 1)
+              yield this.ev('skip', n, (n.values.length - 1 - b) + ' operand(s) never evaluated', { from: b + 1, op: n.op });
+            return last;
+          }
+        }
+        return last;
+      }
+      case 'cmp': {
+        var left = yield* this.evalNode(n.left), result = B(true);
+        for (var c = 0; c < n.ops.length; c++) {
+          var right = yield* this.evalNode(n.comps[c]);
+          var r = yield* this.compareOne(n, left, n.ops[c], right);
+          yield this.ev('compare', n, repr(left) + ' ' + n.ops[c] + ' ' + repr(right) + ' → ' + (r ? 'True' : 'False'), { a: left, b: right, op: n.ops[c], result: r, link: c });
+          if (!r) return B(false);
+          left = right;
+        }
+        return result;
+      }
+      case 'bin': return yield* this.binop(n);
+      case 'attr': err('AttributeError', "'" + typeName(yield* this.evalNode(n.obj)) + "' object has no attribute '" + n.name + "'");
+      case 'sub': {
+        var obj = yield* this.evalNode(n.obj), ix = yield* this.evalNode(n.index);
+        this.stats.probes++;
+        if (obj.t === 'dict') {
+          var f2 = dictFind(obj, ix);
+          if (f2 < 0) err('KeyError', repr(ix));
+          return obj.val[f2];
+        }
+        if (obj.t === 'str') { return S(obj.v[normIndex(obj, num(ix))]); }
+        if (obj.t === 'set') err('TypeError', "'set' object is not subscriptable");
+        return obj.v[normIndex(obj, num(ix))];
+      }
+      case 'slice': {
+        var ob = yield* this.evalNode(n.obj);
+        var len = ob.t === 'str' ? ob.v.length : ob.v.length;
+        var lo = n.lo ? clampIdx(num(yield* this.evalNode(n.lo)), len) : 0;
+        var hi = n.hi ? clampIdx(num(yield* this.evalNode(n.hi)), len) : len;
+        if (ob.t === 'str') return S(ob.v.slice(lo, hi));
+        var piece = ob.v.slice(lo, hi);
+        this.stats.allocations++;
+        return ob.t === 'tuple' ? T(piece) : L(piece);
+      }
+      case 'comp': return yield* this.comprehend(n);
+      case 'call': return yield* this.call(n);
+    }
+    err('SyntaxError', 'cannot evaluate node ' + n.k);
+  };
+
+  Interp.prototype.compareOne = function* (n, a, op, b) {
+    switch (op) {
+      case 'is': return a === b || (a.id && b.id && a.id === b.id) || (a.t === 'none' && b.t === 'none') || (a.t === 'bool' && b.t === 'bool' && a.v === b.v) || (a.t === 'int' && b.t === 'int' && a.v === b.v && Math.abs(a.v) < 257);
+      case 'is not': return !(yield* this.compareOne(n, a, 'is', b));
+      case 'in': return yield* this.contains(b, a);
+      case 'not in': return !(yield* this.contains(b, a));
+      case '==': return eq(a, b);
+      case '!=': return !eq(a, b);
+      default: {
+        var c = cmp(a, b, this.stats);
+        return op === '<' ? c < 0 : op === '>' ? c > 0 : op === '<=' ? c <= 0 : c >= 0;
+      }
+    }
+  };
+  Interp.prototype.contains = function* (container, v) {
+    this.stats.probes++;
+    if (container.t === 'set') { yield this.ev('probe', null, 'hash(' + repr(v) + ') → single bucket lookup, no scan', { hashed: true }); return setHas(container, v); }
+    if (container.t === 'dict') { yield this.ev('probe', null, 'hash(' + repr(v) + ') → single bucket lookup among keys', { hashed: true }); return dictFind(container, v) >= 0; }
+    if (container.t === 'str') return container.v.indexOf(pystr(v)) >= 0;
+    var arr = iterate(container);
+    for (var i = 0; i < arr.length; i++) { if (eq(arr[i], v)) { yield this.ev('probe', null, 'scanned ' + (i + 1) + ' element(s), found it', { scanned: i + 1 }); return true; } }
+    yield this.ev('probe', null, 'scanned all ' + arr.length + ' element(s), no match', { scanned: arr.length });
+    return false;
+  };
+
+  Interp.prototype.binop = function* (n) {
+    var a = yield* this.evalNode(n.l), b = yield* this.evalNode(n.r), op = n.op;
+    if (a.t === 'set' && b.t === 'set') {
+      var out = SET([]), i;
+      if (op === '|') { a.v.forEach(function (x) { setAdd(out, x); }); b.v.forEach(function (x) { setAdd(out, x); }); }
+      else if (op === '&') a.v.forEach(function (x) { if (setHas(b, x)) setAdd(out, x); });
+      else if (op === '-') a.v.forEach(function (x) { if (!setHas(b, x)) setAdd(out, x); });
+      else if (op === '^') { a.v.forEach(function (x) { if (!setHas(b, x)) setAdd(out, x); }); b.v.forEach(function (x) { if (!setHas(a, x)) setAdd(out, x); }); }
+      else err('TypeError', "unsupported operand type(s) for " + op + ": 'set' and 'set'");
+      yield this.ev('setop', n, 'a ' + op + ' b → ' + repr(out), { op: op, a: a, b: b, out: out });
+      return out;
+    }
+    if (op === '+') {
+      if (a.t === 'str' && b.t === 'str') return S(a.v + b.v);
+      if (a.t === 'list' && b.t === 'list') { this.stats.allocations++; return L(a.v.concat(b.v)); }
+      if (a.t === 'tuple' && b.t === 'tuple') return T(a.v.concat(b.v));
+      if (isNum(a) && isNum(b)) return mknum(a, b, num(a) + num(b));
+      err('TypeError', 'unsupported operand type(s) for +: ' + q(typeName(a)) + ' and ' + q(typeName(b)));
+    }
+    if (op === '*') {
+      if (isNum(a) && isNum(b)) return mknum(a, b, num(a) * num(b));
+      if (a.t === 'str' && b.t === 'int') return S(a.v.repeat(Math.max(0, b.v)));
+      if (a.t === 'list' && b.t === 'int') { var r = []; for (var t = 0; t < b.v; t++) r = r.concat(a.v); return L(r); }
+      err('TypeError', 'unsupported operand type(s) for *: ' + q(typeName(a)) + ' and ' + q(typeName(b)));
+    }
+    if (!isNum(a) || !isNum(b)) err('TypeError', 'unsupported operand type(s) for ' + op + ': ' + q(typeName(a)) + ' and ' + q(typeName(b)));
+    var x = num(a), y = num(b);
+    switch (op) {
+      case '-': return mknum(a, b, x - y);
+      case '/': if (y === 0) err('ZeroDivisionError', 'division by zero'); return F(x / y);
+      case '//': if (y === 0) err('ZeroDivisionError', 'integer division or modulo by zero'); return mknum(a, b, Math.floor(x / y));
+      case '%': if (y === 0) err('ZeroDivisionError', 'integer division or modulo by zero'); return mknum(a, b, ((x % y) + y) % y);
+      case '**': return mknum(a, b, Math.pow(x, y));
+      case '|': return I(x | y); case '&': return I(x & y); case '^': return I(x ^ y);
+    }
+    err('SyntaxError', 'unknown operator ' + op);
+  };
+  function q(s) { return "'" + s + "'"; }
+  function mknum(a, b, v) { return (a.t === 'float' || b.t === 'float') ? F(v) : I(v); }
+
+  /* comprehensions: own scope, so the loop name does not leak */
+  Interp.prototype.comprehend = function* (n) {
+    var self = this;
+    var result = n.kind === 'dict' ? D([], []) : n.kind === 'set' ? SET([]) : L([]);
+    this.scopes.push(new Map());
+    yield this.ev('scope', n, 'comprehension opens its own scope — its loop name will not leak', { open: true });
+    try {
+      yield* run(0);
+    } finally {
+      this.scopes.pop();
+      yield this.ev('scope', n, 'comprehension scope closed — loop name discarded', { open: false });
+    }
+    return result;
+
+    function* run(gi) {
+      if (gi >= n.gens.length) {
+        if (n.kind === 'dict') {
+          var kk = yield* self.evalNode(n.key), vv = yield* self.evalNode(n.elt);
+          var f = dictFind(result, kk);
+          if (f >= 0) result.val[f] = vv; else { result.k.push(kk); result.val.push(vv); }
+          yield self.ev('emit', n.elt, 'emit ' + repr(kk) + ': ' + repr(vv), { value: vv, key: kk, out: result });
+        } else {
+          var v = yield* self.evalNode(n.elt);
+          if (n.kind === 'set') {
+            var dup = setHas(result, v);
+            setAdd(result, v);
+            yield self.ev(dup ? 'dedup' : 'emit', n.elt, dup ? repr(v) + ' already in the set — dropped' : 'emit ' + repr(v), { value: v, out: result });
+          } else {
+            result.v.push(v);
+            yield self.ev('emit', n.elt, 'emit ' + repr(v) + ' → position ' + (result.v.length - 1), { value: v, out: result });
+          }
+        }
+        return;
+      }
+      var g = n.gens[gi];
+      var seq = yield* self.evalNode(g.iter);
+      var items = iterate(seq);
+      for (var i = 0; i < items.length; i++) {
+        yield* self.assign(g.target, items[i], true);
+        yield self.ev('iter', g.iter, 'clause ' + (gi + 1) + ': bind ' + srcOf(g.target) + ' = ' + repr(items[i]), { index: i, item: items[i], depth: gi, total: items.length });
+        var keep = true;
+        for (var f2 = 0; f2 < g.ifs.length; f2++) {
+          var c = yield* self.evalNode(g.ifs[f2]);
+          keep = truthy(c);
+          yield self.ev('filter', g.ifs[f2], srcOf(g.ifs[f2]) + ' → ' + (keep ? 'kept' : 'rejected'), { kept: keep, item: items[i] });
+          if (!keep) break;
+        }
+        if (keep) yield* run(gi + 1);
+      }
+    }
+  };
+
+  /* ---- calls: builtins + methods ---- */
+  Interp.prototype.callFunc = function* (fn, args) {
+    if (fn.t === 'builtin') return yield* BUILTINS[fn.name].call(this, args, {});
+    if (fn.t === 'func') {
+      var saved = this.scopes;
+      this.scopes = fn.scopes.concat([new Map()]);
+      for (var i = 0; i < fn.params.length; i++) this.setVar(fn.params[i], args[i]);
+      var out;
+      try { out = yield* this.evalNode(fn.body); } finally { this.scopes = saved; }
+      return out;
+    }
+    err('TypeError', "'" + typeName(fn) + "' object is not callable");
+  };
+
+  Interp.prototype.call = function* (n) {
+    var args = [], kw = {};
+    // method call?
+    if (n.fn.k === 'attr') {
+      var obj = yield* this.evalNode(n.fn.obj);
+      for (var i = 0; i < n.args.length; i++) args.push(yield* this.evalNode(n.args[i]));
+      for (var j = 0; j < n.kwargs.length; j++) kw[n.kwargs[j][0]] = yield* this.evalNode(n.kwargs[j][1]);
+      return yield* this.method(obj, n.fn.name, args, kw, n);
+    }
+    var fnv = yield* this.evalNode(n.fn);
+    for (var a = 0; a < n.args.length; a++) {
+      var an = n.args[a];
+      if (an.k === 'star') { var sp = yield* this.evalNode(an.operand); iterate(sp).forEach(function (x) { args.push(x); }); }
+      else args.push(yield* this.evalNode(an));
+    }
+    for (var b = 0; b < n.kwargs.length; b++) kw[n.kwargs[b][0]] = yield* this.evalNode(n.kwargs[b][1]);
+    if (fnv.t === 'builtin') return yield* BUILTINS[fnv.name].call(this, args, kw, n);
+    return yield* this.callFunc(fnv, args);
+  };
+
+  Interp.prototype.method = function* (obj, name, args, kw, node) {
+    var self = this;
+    var need = function (t) { if (obj.t !== t) err('AttributeError', "'" + typeName(obj) + "' object has no attribute '" + name + "'"); };
+    var seq = obj.t === 'list' || obj.t === 'deque';
+
+    if (obj.t === 'str') {
+      switch (name) {
+        case 'strip': return S(obj.v.trim());
+        case 'upper': return S(obj.v.toUpperCase());
+        case 'lower': return S(obj.v.toLowerCase());
+        case 'split': return L((args[0] ? obj.v.split(args[0].v) : obj.v.trim().split(/\s+/)).map(S));
+        case 'format': {
+          var s = obj.v.replace(/\{(\d*)\}/g, function (m, d) { return pystr(args[d === '' ? 0 : parseInt(d, 10)]); });
+          return S(s);
+        }
+        case 'join': return S(iterate(args[0]).map(pystr).join(obj.v));
+      }
+      err('AttributeError', "'str' object has no attribute '" + name + "'");
+    }
+
+    if (obj.t === 'dict') {
+      switch (name) {
+        case 'get': {
+          var f = dictFind(obj, args[0]);
+          yield this.ev('probe', node, f < 0 ? 'key ' + repr(args[0]) + ' missing — get() answers with a default instead of raising' : 'key ' + repr(args[0]) + ' found', { hit: f >= 0 });
+          return f < 0 ? (args[1] || NONE) : obj.val[f];
+        }
+        case 'items': return STREAM('dict_items', obj.k.map(function (k, i) { return T([k, obj.val[i]]); }), [obj]);
+        case 'keys': return STREAM('dict_keys', obj.k.slice(), [obj]);
+        case 'values': return STREAM('dict_values', obj.val.slice(), [obj]);
+        case 'pop': {
+          var j = dictFind(obj, args[0]);
+          if (j < 0) { if (args.length > 1) return args[1]; err('KeyError', repr(args[0])); }
+          var v = obj.val[j]; obj.k.splice(j, 1); obj.val.splice(j, 1);
+          yield this.ev('mutate', node, 'popped key ' + repr(args[0]), { obj: obj });
+          return v;
+        }
+        case 'setdefault': {
+          var s = dictFind(obj, args[0]);
+          if (s >= 0) return obj.val[s];
+          obj.k.push(args[0]); obj.val.push(args[1] || NONE);
+          yield this.ev('mutate', node, 'inserted default for ' + repr(args[0]), { obj: obj });
+          return args[1] || NONE;
+        }
+        case 'copy': return D(obj.k.slice(), obj.val.slice());
+        case 'update': {
+          iterate(args[0]).forEach(function (k) { var i2 = dictFind(args[0], k), j2 = dictFind(obj, k); if (j2 >= 0) obj.val[j2] = args[0].val[i2]; else { obj.k.push(k); obj.val.push(args[0].val[i2]); } });
+          yield this.ev('mutate', node, 'merged in ' + repr(args[0]), { obj: obj }); return NONE;
+        }
+      }
+      err('AttributeError', "'dict' object has no attribute '" + name + "'");
+    }
+
+    if (obj.t === 'set') {
+      switch (name) {
+        case 'add': { var dup = setHas(obj, args[0]); setAdd(obj, args[0]); yield this.ev(dup ? 'dedup' : 'mutate', node, dup ? repr(args[0]) + ' already present — set unchanged' : 'added ' + repr(args[0]), { obj: obj, value: args[0] }); return NONE; }
+        case 'discard': { var k = hashKey(args[0]); obj.v = obj.v.filter(function (x) { return hashKey(x) !== k; }); yield this.ev('mutate', node, 'discarded ' + repr(args[0]), { obj: obj }); return NONE; }
+        case 'remove': { var k2 = hashKey(args[0]); if (!setHas(obj, args[0])) err('KeyError', repr(args[0])); obj.v = obj.v.filter(function (x) { return hashKey(x) !== k2; }); yield this.ev('mutate', node, 'removed ' + repr(args[0]), { obj: obj }); return NONE; }
+        case 'union': return yield* this.binop({ k: 'bin', op: '|', l: { k: 'const', v: obj }, r: { k: 'const', v: args[0] }, line: node && node.line });
+        case 'intersection': return yield* this.binop({ k: 'bin', op: '&', l: { k: 'const', v: obj }, r: { k: 'const', v: args[0] }, line: node && node.line });
+        case 'difference': return yield* this.binop({ k: 'bin', op: '-', l: { k: 'const', v: obj }, r: { k: 'const', v: args[0] }, line: node && node.line });
+        case 'copy': return SET(obj.v.slice());
+      }
+      err('AttributeError', "'set' object has no attribute '" + name + "'");
+    }
+
+    if (!seq) err('AttributeError', "'" + typeName(obj) + "' object has no attribute '" + name + "'");
+    if (obj.t === 'tuple') err('AttributeError', "'tuple' object has no attribute '" + name + "'");
+
+    switch (name) {
+      case 'append': {
+        obj.v.push(args[0]);
+        yield this.ev('mutate', node, 'appended ' + repr(args[0]) + ' at index ' + (obj.v.length - 1) + ' — 0 elements moved', { obj: obj, added: args[0], at: obj.v.length - 1, shifts: 0 });
+        return NONE;
+      }
+      case 'appendleft': {
+        obj.v.unshift(args[0]);
+        yield this.ev('mutate', node, 'appended ' + repr(args[0]) + ' on the left — 0 elements moved (deque is linked at both ends)', { obj: obj, shifts: 0, at: 0 });
+        return NONE;
+      }
+      case 'extend': {
+        var add = iterate(args[0]);
+        add.forEach(function (x) { obj.v.push(x); });
+        yield this.ev('mutate', node, 'extended by ' + add.length + ' element(s) — the argument was consumed element by element, not nested', { obj: obj, shifts: 0 });
+        return NONE;
+      }
+      case 'insert': {
+        var at = num(args[0]); if (at < 0) at = Math.max(0, obj.v.length + at); at = Math.min(at, obj.v.length);
+        var moved = obj.v.length - at;
+        obj.v.splice(at, 0, args[1]);
+        this.stats.shifts += moved;
+        yield this.ev('mutate', node, 'inserted ' + repr(args[1]) + ' at ' + at + ' — ' + moved + ' element(s) shifted right', { obj: obj, at: at, shifts: moved });
+        return NONE;
+      }
+      case 'pop': {
+        if (!obj.v.length) err('IndexError', 'pop from empty ' + obj.t);
+        var ix = args.length ? num(args[0]) : -1;
+        var n2 = ix < 0 ? obj.v.length + ix : ix;
+        if (n2 < 0 || n2 >= obj.v.length) err('IndexError', 'pop index out of range');
+        var got = obj.v.splice(n2, 1)[0];
+        var mv = obj.v.length - n2;
+        this.stats.shifts += mv;
+        yield this.ev('mutate', node, 'popped ' + repr(got) + ' from index ' + n2 + ' — ' + mv + ' element(s) shifted left; the value is returned', { obj: obj, shifts: mv, removed: got, at: n2 });
+        return got;
+      }
+      case 'popleft': {
+        if (!obj.v.length) err('IndexError', 'pop from an empty deque');
+        var g2 = obj.v.shift();
+        yield this.ev('mutate', node, 'popped ' + repr(g2) + ' from the left — 0 elements moved', { obj: obj, shifts: 0, removed: g2, at: 0 });
+        return g2;
+      }
+      case 'remove': {
+        for (var i = 0; i < obj.v.length; i++) {
+          if (eq(obj.v[i], args[0])) {
+            obj.v.splice(i, 1);
+            var mv2 = obj.v.length - i;
+            this.stats.shifts += mv2;
+            yield this.ev('mutate', node, 'removed the first ' + repr(args[0]) + ' (index ' + i + ') — ' + mv2 + ' element(s) shifted left', { obj: obj, shifts: mv2, at: i });
+            return NONE;
+          }
+        }
+        err('ValueError', 'list.remove(x): x not in list');
+      }
+      case 'clear': { obj.v.length = 0; yield this.ev('mutate', node, 'emptied in place — same object, zero elements', { obj: obj }); return NONE; }
+      case 'index': {
+        var start = args.length > 1 ? clampIdx(num(args[1]), obj.v.length) : 0;
+        var stop = args.length > 2 ? clampIdx(num(args[2]), obj.v.length) : obj.v.length;
+        for (var s2 = start; s2 < stop; s2++) {
+          this.stats.probes++;
+          if (eq(obj.v[s2], args[0])) {
+            yield this.ev('probe', node, 'found ' + repr(args[0]) + ' at absolute index ' + s2 + ' after ' + (s2 - start + 1) + ' comparison(s)', { at: s2, scanned: s2 - start + 1, obj: obj });
+            return I(s2);
+          }
+        }
+        err('ValueError', repr(args[0]) + ' is not in list');
+      }
+      case 'count': {
+        var c = 0; obj.v.forEach(function (x) { if (eq(x, args[0])) c++; });
+        yield this.ev('probe', node, repr(args[0]) + ' appears ' + c + ' time(s) — every element was compared', { scanned: obj.v.length, obj: obj });
+        return I(c);
+      }
+      case 'sort': {
+        var keyf = kw.key, rev = kw.reverse && truthy(kw.reverse);
+        yield* sortInPlace(this, obj, keyf, rev, node);
+        return NONE;
+      }
+      case 'reverse': { obj.v.reverse(); yield this.ev('mutate', node, 'reversed in place — order flipped, object identity kept', { obj: obj }); return NONE; }
+      case 'copy': { this.stats.allocations++; var c2 = L(obj.v.slice()); yield this.ev('alloc', node, 'shallow copy: new list object, same element objects inside', { obj: c2, shallow: true }); return c2; }
+    }
+    err('AttributeError', "'" + typeName(obj) + "' object has no attribute '" + name + "'");
+  };
+
+  function* sortInPlace(interp, obj, keyf, rev, node) {
+    var arr = obj.v.slice(), keys = [];
+    for (var i = 0; i < arr.length; i++) keys.push(keyf ? yield* interp.callFunc(keyf, [arr[i]]) : arr[i]);
+    var idx = arr.map(function (_, i) { return i; });
+    var thrown = null;
+    idx.sort(function (a, b) {
+      if (thrown) return 0;
+      try { return cmp(keys[a], keys[b], interp.stats); } catch (e) { thrown = e; return 0; }
+    });
+    if (thrown) throw thrown;
+    if (rev) idx.reverse();
+    obj.v.length = 0;
+    idx.forEach(function (i2) { obj.v.push(arr[i2]); });
+    yield interp.ev('mutate', node, 'sorted in place using ' + interp.stats.comparisons + ' pairwise comparison(s)' + (keyf ? ' on the key function' : ''), { obj: obj });
+  }
+
+  /* ---- builtins ---- */
+  var BUILTINS = {
+    print: function* (args) {
+      var line = args.map(pystr).join(' ');
+      this.out.push(line);
+      yield this.ev('output', null, line, { out: line });
+      return NONE;
+    },
+    len: function* (a) { return I(lengthOf(a[0])); },
+    range: function* (a) {
+      var s = a.length > 1 ? num(a[0]) : 0, e = a.length > 1 ? num(a[1]) : num(a[0]), st = a.length > 2 ? num(a[2]) : 1;
+      return RANGE(s, e, st);
+    },
+    abs: function* (a) { return a[0].t === 'float' ? F(Math.abs(a[0].v)) : I(Math.abs(num(a[0]))); },
+    str: function* (a) { return S(pystr(a[0])); },
+    int: function* (a) { return I(a[0].t === 'str' ? parseInt(a[0].v, 10) : Math.trunc(num(a[0]))); },
+    float: function* (a) {
+      if (a[0].t === 'str') { var s = a[0].v.trim().toLowerCase(); return F(s === 'nan' ? NaN : s === 'inf' ? Infinity : parseFloat(s)); }
+      return F(num(a[0]));
+    },
+    round: function* (a) {
+      var d = a.length > 1 ? num(a[1]) : 0, x = num(a[0]);
+      var m = Math.pow(10, d), r = Math.round((x + Number.EPSILON) * m) / m;
+      return d > 0 ? F(r) : I(r);
+    },
+    list: function* (a) { this.stats.allocations++; return L(a.length ? iterate(a[0]) : []); },
+    tuple: function* (a) { return T(a.length ? iterate(a[0]) : []); },
+    set: function* (a) {
+      var s = SET([]);
+      if (a.length) { var items = iterate(a[0]), dropped = 0; items.forEach(function (x) { if (setHas(s, x)) dropped++; else setAdd(s, x); });
+        yield this.ev('dedup', null, items.length + ' item(s) in, ' + s.v.length + ' unique out — ' + dropped + ' duplicate(s) absorbed', { obj: s, dropped: dropped }); }
+      return s;
+    },
+    dict: function* (a, kw) {
+      var d = D([], []);
+      if (a.length) iterate(a[0]).forEach(function (pair) { var p = iterate(pair); var f = dictFind(d, p[0]); if (f >= 0) d.val[f] = p[1]; else { d.k.push(p[0]); d.val.push(p[1]); } });
+      for (var k in kw) { d.k.push(S(k)); d.val.push(kw[k]); }
+      return d;
+    },
+    deque: function* (a) { return DQ(a.length ? iterate(a[0]) : []); },
+    sorted: function* (a, kw) {
+      var src = iterate(a[0]);
+      var tmp = L(src.slice());
+      yield* sortInPlace(this, tmp, kw.key, kw.reverse && truthy(kw.reverse), null);
+      yield this.ev('alloc', null, 'sorted() built a new list — the source is untouched', { obj: tmp });
+      return tmp;
+    },
+    reversed: function* (a) { return STREAM('reversed', iterate(a[0]).slice().reverse(), [a[0]]); },
+    enumerate: function* (a) {
+      var st = a.length > 1 ? num(a[1]) : 0;
+      return STREAM('enumerate', iterate(a[0]).map(function (x, i) { return T([I(i + st), x]); }), [a[0]]);
+    },
+    zip: function* (a) {
+      var seqs = a.map(iterate), n = Math.min.apply(null, seqs.map(function (s) { return s.length; }));
+      var out = [];
+      for (var i = 0; i < n; i++) out.push(T(seqs.map(function (s) { return s[i]; })));
+      if (seqs.some(function (s) { return s.length !== n; }))
+        yield this.ev('rule', null, 'zip stops at the shortest input (' + n + ') — longer inputs are truncated', { truncated: true });
+      return STREAM('zip', out, a);
+    },
+    map: function* (a) {
+      var out = [], items = iterate(a[1]);
+      for (var i = 0; i < items.length; i++) out.push(yield* this.callFunc(a[0], [items[i]]));
+      return STREAM('map', out, [a[1]]);
+    },
+    filter: function* (a) {
+      var out = [], items = iterate(a[1]);
+      for (var i = 0; i < items.length; i++) { var keep = yield* this.callFunc(a[0], [items[i]]); if (truthy(keep)) out.push(items[i]); }
+      return STREAM('filter', out, [a[1]]);
+    },
+    sum: function* (a) { var s = 0, fl = false; iterate(a[0]).forEach(function (x) { if (x.t === 'float') fl = true; s += num(x); }); return fl ? F(s) : I(s); },
+    min: function* (a) { var items = a.length > 1 ? a : iterate(a[0]), best = items[0]; var st = this.stats; items.forEach(function (x) { if (cmp(x, best, st) < 0) best = x; }); return best; },
+    max: function* (a) { var items = a.length > 1 ? a : iterate(a[0]), best = items[0]; var st = this.stats; items.forEach(function (x) { if (cmp(x, best, st) > 0) best = x; }); return best; },
+    type: function* (a) { return { t: 'class', name: typeName(a[0]) }; },
+    id: function* (a) { return I(a[0].id ? 140000000000 + a[0].id * 48 : 100000000 + (hashKey(a[0]).length * 8)); },
+    hash: function* (a) { var k = hashKey(a[0]); var h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0; return I(h); },
+    isinstance: function* (a) { return B(typeName(a[0]) === a[1].name); }
+  };
+
+  /* source reconstruction for trace labels */
+  function srcOf(n) {
+    if (!n) return '';
+    switch (n.k) {
+      case 'name': return n.v;
+      case 'num': return n.v;
+      case 'str': return reprStr(n.v);
+      case 'const': return repr(n.v);
+      case 'bin': return srcOf(n.l) + ' ' + n.op + ' ' + srcOf(n.r);
+      case 'cmp': return srcOf(n.left) + ' ' + n.ops.map(function (o, i) { return o + ' ' + srcOf(n.comps[i]); }).join(' ');
+      case 'not': return 'not ' + srcOf(n.operand);
+      case 'neg': return '-' + srcOf(n.operand);
+      case 'bool': return n.values.map(srcOf).join(' ' + n.op + ' ');
+      case 'call': return srcOf(n.fn) + '(' + n.args.map(srcOf).join(', ') + ')';
+      case 'attr': return srcOf(n.obj) + '.' + n.name;
+      case 'sub': return srcOf(n.obj) + '[' + srcOf(n.index) + ']';
+      case 'slice': return srcOf(n.obj) + '[' + (n.lo ? srcOf(n.lo) : '') + ':' + (n.hi ? srcOf(n.hi) : '') + ']';
+      case 'list': return '[' + n.items.map(srcOf).join(', ') + ']';
+      case 'tuple': return '(' + n.items.map(srcOf).join(', ') + ')';
+      case 'lambda': return 'lambda ' + n.params.join(', ') + ': ' + srcOf(n.body);
+      case 'comp': return '[' + srcOf(n.elt) + ' …]';
+    }
+    return n.k;
+  }
+  var MUTATORS = { append: 1, extend: 1, insert: 1, remove: 1, sort: 1, reverse: 1, clear: 1, add: 1, discard: 1, update: 1, appendleft: 1 };
+  function isMutatorCall(node) { return node.fn && node.fn.k === 'attr' && MUTATORS[node.fn.name]; }
+
+  /* ============================================================
+     RUNNER — collects events + reversible snapshots
+     ============================================================ */
+  function snapshot(interp, light) {
+    if (light) return { vars: [], out: interp.out.slice(), stats: JSON.parse(JSON.stringify(interp.stats)) };
+    var seen = new Map();
+    var vars = [];
+    interp.globalScope().forEach(function (v, k) { vars.push({ name: k, value: clone(v, seen), type: typeName(v), id: v.id || null }); });
+    var locals = null;
+    if (interp.scopes.length > 1) {
+      locals = [];
+      interp.scopes[interp.scopes.length - 1].forEach(function (v, k) { locals.push({ name: k, value: clone(v, seen), type: typeName(v), id: v.id || null }); });
+    }
+    return { vars: vars, locals: locals, out: interp.out.slice(), stats: JSON.parse(JSON.stringify(interp.stats)) };
+  }
+
+  function run(src, opts) {
+    opts = opts || {};
+    resetIds();
+    var interp = new Interp(opts);
+    var light = !!opts.light;
+    var events = [{ kind: 'start', line: null, text: 'initial state', state: snapshot(interp, light) }], error = null;
+    try {
+      var ast = parse(src);
+      var gen = interp.execBlock(ast);
+      var step = gen.next();
+      while (!step.done) {
+        var e = step.value;
+        if (e) {
+          var KEEP = ['kind','line','text','index','depth','total','shifts','scanned','at','live','decided','op','slot','from','kept','taken','hashed','hit','dropped','truncated','shallow','open','replaced','count','link','result','name','badge'];
+          var rec = {};
+          KEEP.forEach(function (k) { if (e[k] !== undefined) rec[k] = e[k]; });
+          rec.state = snapshot(interp, light);
+          if (e.obj) rec.objId = e.obj.id;
+          if (e.source) rec.sourceId = e.source.id;
+          if (e.out && typeof e.out === 'string') rec.line_out = e.out;
+          rec.detail = detailOf(e);
+          events.push(rec);
+        }
+        step = gen.next();
+      }
+    } catch (ex) {
+      if (ex instanceof PyErr) {
+        error = { type: ex.type, msg: ex.msg };
+        events.push({ kind: 'error', line: currentLine(events), text: ex.type + ': ' + ex.msg, state: snapshot(interp, light), error: error });
+      } else throw ex;
+    }
+    return { events: events, error: error, out: interp.out.slice(), stats: interp.stats, vars: snapshot(interp).vars };
+  }
+  function currentLine(events) { for (var i = events.length - 1; i >= 0; i--) if (events[i].line) return events[i].line; return null; }
+  function detailOf(e) {
+    var d = {};
+    if (e.value) d.value = repr(e.value);
+    if (e.a) d.a = repr(e.a); if (e.b) d.b = repr(e.b);
+    if (e.item) d.item = repr(e.item);
+    if (typeof e.shifts === 'number') d.shifts = e.shifts;
+    if (typeof e.scanned === 'number') d.scanned = e.scanned;
+    return d;
+  }
+
+  /* one-shot evaluation of an expression, no tracing */
+  function evalExpr(src, seed) {
+    var interp = new Interp({ seed: seed });
+    var ast = parse(src);
+    var gen = interp.execBlock(ast);
+    var s = gen.next();
+    while (!s.done) s = gen.next();
+    return { vars: snapshot(interp).vars, out: interp.out };
+  }
+
+  return {
+    run: run, parse: parse, tokenize: tokenize, repr: repr, pystr: pystr, evalExpr: evalExpr,
+    eq: eq, cmp: cmp, hashable: hashable, typeName: typeName, iterate: iterate, PyErr: PyErr,
+    values: { I: I, F: F, S: S, B: B, L: L, T: T, SET: SET, D: D, NONE: NONE }
+  };
+});
+</script>
+<script>/* ============================================================
+   CURRICULUM — Python Tutorial §5, restated as experiments.
+   Every `code` here runs on the observation core. Nothing is
+   illustrative-only: if it is written, it executes.
+   ============================================================ */
+var LABS = [
+{
+  id: 'place', num: '01', span: '5.1 · 5.2', title: 'A list is a place, not a value',
+  concept: 'Mutation & identity',
+  thesis: 'Two names can point at one list. Then there are not two lists.',
+  note: 'Everything confusing about lists comes from one fact: <em>a list method usually changes the object you already have</em> rather than handing you a new one. Watch the identity chip — when it does not change, nothing new was made.',
+  experiments: [
+    { name: 'append vs +', tag: 'normal',
+      code: "a = [1, 2]\nb = a\na.append(3)\nprint(b)\nc = a + [4]\nprint(a is c)\nprint(b is a)",
+      rule: 'A method call like <b>a.append(3)</b> reaches into the object and edits it. The <b>+</b> operator never edits — it allocates a third list and copies both sides into it.',
+      chain: ['b = a binds a second name to <b>the same object</b> — no copy happens',
+              'a.append(3) edits that object in place',
+              'print(b) shows the edit, because b was never a separate list',
+              'a + [4] allocates a new list, so <b>a is c</b> is False'],
+      predict: { q: 'After a.append(3), what does print(b) show?',
+        opts: ['[1, 2]', '[1, 2, 3]', '[3]'], right: 1,
+        wrongModel: { 0: 'Assignment copies the value.', 2: 'append replaces the contents.' },
+        rightModel: 'Assignment binds a name to the existing object. append edits that one object, and both names see it.' } },
+    { name: 'the None tell', tag: 'normal',
+      code: "fruits = ['pear', 'apple', 'fig']\nresult = fruits.sort()\nprint(result)\nprint(fruits)\nordered = sorted(fruits)\nprint(ordered is fruits)",
+      rule: 'Methods that mutate return <b>None</b>. That is not an oversight — it is the signal that the work happened to the object, not to a return value.',
+      chain: ['fruits.sort() reorders the existing list',
+              'having nothing new to return, it returns None',
+              'result therefore holds None, not a list',
+              'sorted(fruits) is the opposite deal: source untouched, new list returned'],
+      predict: { q: 'What does print(result) show?', opts: ["['apple', 'fig', 'pear']", 'None', "['pear', 'apple', 'fig']"], right: 1,
+        wrongModel: { 0: 'sort() returns the sorted list, so it can be chained.', 2: 'sort() returns the list unchanged.' },
+        rightModel: 'Mutating methods return None across every mutable type in Python. Chaining is deliberately impossible so you cannot forget which object changed.' } },
+    { name: 'what a shift costs', tag: 'edge',
+      code: "row = [10, 20, 30, 40]\nrow.insert(0, 5)\nrow.pop(0)\nrow.append(50)\nrow.pop()\nprint(row)",
+      rule: 'A list stores its elements in one contiguous run of slots. Touching the front forces every later element to move; touching the end moves nothing.',
+      chain: ['insert(0, 5) shifts 4 elements right',
+              'pop(0) shifts 4 elements back left',
+              'append and pop() at the end move 0 elements',
+              'the ledger below counts the real moves this run performed'] },
+    { name: 'copy is shallow', tag: 'surprising',
+      code: "inner = [1, 2]\ntable = [inner, ['x']]\nshallow = table.copy()\ninner.append(99)\nprint(shallow)\nprint(shallow[0] is inner)",
+      rule: 'copy() duplicates the <b>outer</b> list of references. The referenced objects are shared, not cloned.',
+      chain: ['table holds a reference to inner, not a copy of it',
+              'table.copy() builds a new outer list holding the same references',
+              'inner.append(99) edits the object both lists point at',
+              'so the "copy" changed too'],
+      predict: { q: 'After inner.append(99), what is shallow?', opts: ['[[1, 2], [\'x\']]', "[[1, 2, 99], ['x']]", 'a new list, unchanged forever'], right: 1,
+        wrongModel: { 0: 'copy() recursively duplicates everything inside.', 2: 'A copy is fully independent of the original.' },
+        rightModel: 'Only the outer list was duplicated. One level down, both lists reference the very same inner object.' } },
+    { name: 'remove what is not there', tag: 'invalid',
+      code: "fruits = ['pear', 'apple']\nfruits.remove('fig')\nprint('never reached')",
+      rule: 'remove() searches by equality and raises <b>ValueError</b> when nothing matches. Compare with index(), which raises the same error, and pop(), which raises IndexError instead — the error names the kind of thing you got wrong.',
+      chain: ['remove scans for a value equal to \'fig\'',
+              'no element compares equal',
+              'ValueError is raised — a value problem, not a position problem',
+              'execution stops; the print never runs'] },
+    { name: 'del a name vs del an item', tag: 'edge',
+      code: "a = [1, 2, 3]\nb = a\ndel a[0]\nprint(b)\ndel a\nprint(b)\nprint(a)",
+      rule: '<b>del a[0]</b> edits the object. <b>del a</b> deletes only the name — the object survives as long as another name holds it.',
+      chain: ['del a[0] removes an element, shifting the rest left',
+              'b still sees the object, now [2, 3]',
+              'del a removes the binding a → object',
+              'b keeps the object alive; referencing a is now a NameError'] }
+  ],
+  lenses: [
+    { level: 'ENGINEER', who: 'why it behaves this way', html: 'Names in Python are labels tied to objects, not boxes holding values. Assignment moves a label. A method call can change what the labelled object contains. Once you hold those two sentences separately, aliasing stops being surprising.' },
+    { level: 'EXPERT', who: 'the rule as the language states it', html: 'The tutorial puts it plainly: methods that only modify the list have no return value — they return the default <b>None</b>, and this is a design principle for all mutable data structures. <b>a[len(a):] = [x]</b> is append; <b>a[len(a):] = iterable</b> is extend; <b>a[:]</b> is copy. The methods are named shorthands for slice assignment.' },
+    { level: 'IN PRACTICE', who: 'what to do on Monday', html: 'If a function takes a list and mutates it, return None and say so in the name (<b>sort_in_place</b>). If it should hand back something new, do not touch the argument. Mixing the two is where the bug lives. When you need a true independent copy of nested data, reach for <b>copy.deepcopy</b> — <b>.copy()</b> will not do it.' }
+  ]
+},
+{
+  id: 'discipline', num: '02', span: '5.1.1 · 5.1.2', title: 'Two disciplines, one storage layout',
+  concept: 'Stacks, queues, cost',
+  thesis: 'A stack and a queue differ only in which end you touch. The list only likes one of them.',
+  note: 'Both programs on this bench do the same work in the same order. The only difference is the end of the structure they operate on — and that is enough to change the cost from <em>flat</em> to <em>proportional to length</em>.',
+  dual: true,
+  experiments: [
+    { name: 'LIFO — a stack', tag: 'normal', alabel: 'list as stack', blabel: 'deque as stack',
+      code: "stack = [3, 4, 5]\nstack.append(6)\nstack.append(7)\nprint(stack.pop())\nprint(stack.pop())\nprint(stack)",
+      b: "from collections import deque\nstack = deque([3, 4, 5])\nstack.append(6)\nstack.append(7)\nprint(stack.pop())\nprint(stack.pop())\nprint(stack)",
+      rule: 'Last in, first out. Both ends-of-the-list operations — append and pop() with no index — move zero elements, so a plain list is already the right tool.',
+      chain: ['append writes into the slot after the last one',
+              'pop() removes the last slot',
+              'nothing behind them has to move',
+              'the shift counters below stay at zero for both'] },
+    { name: 'FIFO — a queue', tag: 'edge', alabel: 'list.pop(0)', blabel: 'deque.popleft()',
+      code: "queue = ['Eric', 'John', 'Michael']\nqueue.append('Terry')\nqueue.append('Graham')\nprint(queue.pop(0))\nprint(queue.pop(0))\nprint(queue)",
+      b: "from collections import deque\nqueue = deque(['Eric', 'John', 'Michael'])\nqueue.append('Terry')\nqueue.append('Graham')\nprint(queue.popleft())\nprint(queue.popleft())\nprint(queue)",
+      rule: 'Same output, different cost. Removing from the front of a list renumbers everything behind it; a deque is linked at both ends and renumbers nothing.',
+      chain: ['pop(0) hands back the first element',
+              'every remaining element then moves down one slot',
+              'popleft() detaches the front block instead',
+              'read the shift counters — the outputs are identical, the work is not'],
+      predict: { q: 'Both versions print the same three lines. What differs?', opts: ['Nothing — deque is just an alias', 'The deque version moves no elements when removing from the front', 'The list version is faster because lists are built in'], right: 1,
+        wrongModel: { 0: 'deque is a stylistic preference.', 2: 'Being a builtin makes an operation cheap.' },
+        rightModel: 'Cost comes from the storage layout, not from the name. A list is one contiguous run of slots, so the front is the expensive end.' } },
+    { name: 'growing at the front', tag: 'surprising', alabel: 'list.insert(0, x)', blabel: 'deque.appendleft(x)',
+      code: "log = []\nfor i in range(6):\n    log.insert(0, i)\nprint(log)",
+      b: "from collections import deque\nlog = deque()\nfor i in range(6):\n    log.appendleft(i)\nprint(log)",
+      rule: 'Building a list backwards by inserting at the front costs 0+1+2+3+… moves. The curve below is measured, not estimated — every point is a real run of this program at that length.',
+      chain: ['each insert(0, i) shifts the whole existing list right by one',
+              'the work per operation grows with the length already built',
+              'appendleft attaches a new element without touching the others',
+              'over n operations that is the difference between a curve and a line'] }
+  ],
+  lenses: [
+    { level: 'ENGINEER', who: 'why it behaves this way', html: 'A list keeps its element references in one block, indexed by position. Position <b>is</b> the address, so removing element 0 means every other element gets a new address. A deque keeps a chain of blocks and tracks both ends, so both ends are cheap and the middle is not.' },
+    { level: 'EXPERT', who: 'the rule as the language states it', html: 'The tutorial is explicit: appends and pops from the end of a list are fast, while inserts and pops from the beginning are slow because all of the other elements have to be shifted by one. Its recommendation for queues is <b>collections.deque</b>, designed for fast appends and pops from both ends.' },
+    { level: 'IN PRACTICE', who: 'what to do on Monday', html: 'Use a list for a stack — no import needed. Reach for a deque the moment work arrives at one end and leaves at the other: task queues, sliding windows, breadth-first search frontiers. If you ever write <b>lst.pop(0)</b> inside a loop, that is the signal.' }
+  ]
+},
+{
+  id: 'comprehension', num: '03', span: '5.1.3 · 5.1.4', title: 'A comprehension is a loop with the accumulator removed',
+  concept: 'Comprehensions',
+  thesis: 'Not shorter syntax. A different claim about what you are doing: building one new list, and nothing else.',
+  note: 'The two programs on this bench compile to the same output. Step them together and watch the state panels: the loop leaves its counter behind in your namespace, and the comprehension does not. <em>That leftover name is the difference between describing a result and performing a procedure.</em>',
+  dual: true,
+  experiments: [
+    { name: 'squares', tag: 'normal', alabel: 'comprehension', blabel: 'explicit loop',
+      code: "squares = [x**2 for x in range(6)]\nprint(squares)",
+      b: "squares = []\nfor x in range(6):\n    squares.append(x**2)\nprint(squares)",
+      rule: 'Same list, same order, same number of iterations. The comprehension runs its loop name in a private scope, so <b>x</b> does not survive; the statement loop leaves x bound to its final value.',
+      chain: ['both evaluate range(6) once',
+              'both bind the loop name per iteration and evaluate x**2',
+              'the comprehension appends into a list only it can see',
+              'when it finishes, its scope closes and the name x is discarded'],
+      predict: { q: 'After each program finishes, which one still has a variable x?', opts: ['Both', 'Only the explicit loop', 'Only the comprehension'], right: 1,
+        wrongModel: { 0: 'A comprehension is just a rewritten for-statement, so it leaks the same way.', 2: 'The comprehension defines x for later use.' },
+        rightModel: 'A comprehension gets its own scope. The loop name lives and dies inside it — one of the few places Python creates a scope without a function.' } },
+    { name: 'filter and transform', tag: 'normal', alabel: 'comprehension', blabel: 'loop with if',
+      code: "vec = [-4, -2, 0, 2, 4]\nkept = [x*2 for x in vec if x >= 0]\nprint(kept)",
+      b: "vec = [-4, -2, 0, 2, 4]\nkept = []\nfor x in vec:\n    if x >= 0:\n        kept.append(x*2)\nprint(kept)",
+      rule: 'The <b>if</b> clause runs before the output expression, per item. Rejected items never reach <b>x*2</b>, which is why a filter clause can guard an expression that would fail on some inputs.',
+      chain: ['bind x to the next item',
+              'evaluate the if clause',
+              'if it is false, skip straight to the next item',
+              'only survivors are transformed and emitted'] },
+    { name: 'two clauses, one nesting', tag: 'edge', alabel: 'comprehension', blabel: 'nested loops',
+      code: "pairs = [(x, y) for x in [1,2,3] for y in [3,1,4] if x != y]\nprint(pairs)",
+      b: "pairs = []\nfor x in [1,2,3]:\n    for y in [3,1,4]:\n        if x != y:\n            pairs.append((x, y))\nprint(pairs)",
+      rule: 'Clauses read left to right in exactly the order you would nest them. The leftmost <b>for</b> is the outer loop. A tuple in the output position must be parenthesised.',
+      chain: ['the first for clause is the outer loop',
+              'each of its items opens the second clause from the start',
+              'the if clause guards the innermost body',
+              'order of clauses in the comprehension = order of nesting in the loop'] },
+    { name: 'transpose a matrix', tag: 'edge', alabel: 'nested comprehension', blabel: 'zip(*matrix)',
+      code: "matrix = [[1,2,3,4],[5,6,7,8],[9,10,11,12]]\nt = [[row[i] for row in matrix] for i in range(4)]\nprint(t)",
+      b: "matrix = [[1,2,3,4],[5,6,7,8],[9,10,11,12]]\nt = list(zip(*matrix))\nprint(t)",
+      rule: 'The inner comprehension is an expression evaluated once per outer item, reading column <b>i</b> down every row. It works — but the built-in does the same job in one call, and the tutorial tells you to prefer it.',
+      chain: ['outer clause: i takes 0, 1, 2, 3',
+              'for each i, the inner comprehension runs a full pass over the rows',
+              'it collects row[i] — one whole column',
+              'zip(*matrix) pairs the rows positionally and returns tuples instead of lists'] },
+    { name: 'the missing parentheses', tag: 'invalid', alabel: 'broken', blabel: 'fixed',
+      code: "pairs = [x, x**2 for x in range(6)]\nprint(pairs)",
+      b: "pairs = [(x, x**2) for x in range(6)]\nprint(pairs)",
+      rule: 'A comprehension has exactly one output expression. A bare comma looks like a list of two items, and then <b>for</b> arrives where a closing bracket was expected — so it fails at parse time, before anything runs.',
+      chain: ['the parser reads x as the first list element',
+              'the comma promises a second element, and x**2 supplies it',
+              'now it needs ] and finds for',
+              'SyntaxError — nothing executes, so no state exists to inspect'] }
+  ],
+  lenses: [
+    { level: 'ENGINEER', who: 'why it behaves this way', html: 'A comprehension states a relationship between an input sequence and an output list. Because the accumulator is implicit, there is no place to put an unrelated side effect — which is exactly the constraint that makes it readable. If your comprehension needs a side effect, it wanted to be a loop.' },
+    { level: 'EXPERT', who: 'the rule as the language states it', html: 'Brackets containing an expression followed by a <b>for</b> clause, then zero or more <b>for</b> or <b>if</b> clauses. The result is a new list built by evaluating the expression in the context of the clauses that follow it. The same grammar with braces gives a set comprehension, and with <b>key: value</b> a dict comprehension.' },
+    { level: 'IN PRACTICE', who: 'what to do on Monday', html: 'One <b>for</b> and at most one <b>if</b> is the readable range. Past that, write the loop — the nested transpose here is legal and clear enough to teach with, and would still lose a code review to <b>zip(*matrix)</b>. Reach for a comprehension when the output is a pure function of the input, and a loop when the point is the doing.' }
+  ]
+},
+{
+  id: 'shape', num: '04', span: '5.3 · 5.4 · 5.5', title: 'Three containers, three different questions',
+  concept: 'Tuples, sets, dicts',
+  thesis: 'A list answers "what is at position 3?". A set answers "is this in here?". A dict answers "what belongs to this key?".',
+  note: 'Sets and dicts locate things by <em>hashing the value itself</em> — the value computes its own address. That single mechanism explains all three of their famous properties: no duplicates, no order you chose, and no mutable keys.',
+  experiments: [
+    { name: 'packing and unpacking', tag: 'normal',
+      code: "t = 12345, 54321, 'hello!'\nprint(t)\nx, y, z = t\nprint(y)\nsingleton = 'hello',\nempty = ()\nprint(len(singleton), len(empty))",
+      rule: 'The comma builds the tuple — the parentheses are usually just punctuation. A trailing comma is what makes a one-item tuple; parentheses alone do not.',
+      chain: ['three values separated by commas are packed into a tuple',
+              'unpacking binds each element positionally, left to right',
+              'the count on both sides must match exactly',
+              "'hello', is a one-tuple; ('hello') would be a plain string"] },
+    { name: 'immutable shell, mutable contents', tag: 'surprising',
+      code: "v = ([1, 2], [3])\nv[0].append(99)\nprint(v)\nv[0] = ['replaced']",
+      rule: 'A tuple freezes <b>which objects</b> it references, not what those objects contain. Reassigning a slot is a TypeError; editing the object in a slot is ordinary mutation.',
+      chain: ['v holds two references and refuses to change them',
+              'v[0].append(99) never touches v — it edits the list v points at',
+              'v[0] = [...] would replace a reference, which the tuple forbids',
+              'TypeError: tuple object does not support item assignment'],
+      predict: { q: 'v = ([1, 2], [3]) — then v[0].append(99). What happens?', opts: ['TypeError: tuples are immutable', 'It works: v becomes ([1, 2, 99], [3])', 'It silently does nothing'], right: 1,
+        wrongModel: { 0: 'Immutability is inherited by everything inside the tuple.', 2: 'Mutation on a tuple member is ignored.' },
+        rightModel: 'Immutability applies to the tuple\'s own slots. The list inside kept all of its own methods.' } },
+    { name: 'a set absorbs duplicates', tag: 'normal',
+      code: "basket = {'apple', 'orange', 'apple', 'pear', 'orange', 'banana'}\nprint(len(basket))\nprint('orange' in basket)\nprint('crabgrass' in basket)\na = set('abracadabra')\nb = set('alacazam')\nprint(a - b)\nprint(a & b)\nprint(a ^ b)",
+      rule: 'Every element is placed by its hash, so a repeat lands in an occupied slot and is dropped. Membership is one address computation, not a scan.',
+      chain: ['each element hashes to a slot',
+              'a duplicate hashes to the same slot and is absorbed',
+              'membership hashes the query and inspects that one slot',
+              'the lattice on the right shows slot placement — insertion order is not preserved'] },
+    { name: 'scan vs hash', tag: 'edge', alabel: 'membership in a list', blabel: 'membership in a set',
+      code: "names = ['ana','ben','cara','dev','eli','fay','gus','hana']\nprint('hana' in names)\nprint('zoe' in names)",
+      b: "names = {'ana','ben','cara','dev','eli','fay','gus','hana'}\nprint('hana' in names)\nprint('zoe' in names)",
+      rule: 'Same answers. The list compared its way through the elements; the set computed one address. Read the probe counts in the ledger.',
+      chain: ['in on a list walks from index 0 comparing each element',
+              'a miss costs a full pass over everything',
+              'in on a set hashes the query once',
+              'a miss costs the same as a hit'] },
+    { name: 'a dict remembers the order you built it', tag: 'normal',
+      code: "tel = {'jack': 4098, 'sape': 4139}\ntel['guido'] = 4127\ntel['jack'] = 1000\ndel tel['sape']\nprint(tel)\nprint(list(tel))\nprint(sorted(tel))\nprint(tel.get('irv'))\nprint(tel['irv'])",
+      rule: 'Keys are located by hash, but the pairs are kept in insertion order. Assigning to an existing key overwrites in place and keeps its original position. <b>get()</b> answers with a default where subscripting raises KeyError.',
+      chain: ['a new key is appended at the end of the insertion order',
+              'assigning to an existing key overwrites the value, position unchanged',
+              'get() reports a miss as None instead of raising',
+              'subscripting a missing key raises KeyError and stops execution'] },
+    { name: 'what may be a key', tag: 'invalid',
+      code: "d = {}\nd[(1, 2)] = 'tuple key is fine'\nprint(d)\nd[[1, 2]] = 'list key'",
+      rule: 'A key must be hashable, and hashability requires that the value cannot change. A list can change, so its address would go stale the moment you edited it — Python refuses up front.',
+      chain: ['a tuple of immutable values hashes to a stable address',
+              'a list has no stable hash by design',
+              'TypeError: unhashable type — raised at insertion, not at lookup',
+              'a tuple containing a list is equally unusable as a key'] },
+    { name: 'True is 1 wearing a hat', tag: 'surprising',
+      code: "d = {1: 'one'}\nd[True] = 'boolean'\nprint(d)\nprint(len(d))\nprint({1, 1.0, True})",
+      rule: 'Keys collide when they are <b>equal</b>, not when they are the same type. <b>True == 1 == 1.0</b>, so all three occupy one slot — and the first one inserted keeps the position.',
+      chain: ['hash(True) equals hash(1) because the values compare equal',
+              'the assignment finds an occupied, equal slot',
+              'so it overwrites the value and keeps the original key object',
+              'the same rule collapses {1, 1.0, True} to a single element'],
+      predict: { q: 'd = {1: \'one\'} then d[True] = \'boolean\'. What is len(d)?', opts: ['1', '2', 'TypeError'], right: 0,
+        wrongModel: { 1: 'Different types are always different keys.', 2: 'Booleans cannot be dict keys.' },
+        rightModel: 'bool is a subclass of int. True equals 1 and hashes identically, so it is the same key.' } }
+  ],
+  lenses: [
+    { level: 'ENGINEER', who: 'why it behaves this way', html: 'Pick the container by the question you will ask most. Positional access or an ordered pipeline: list. Repeated "have I seen this?" or de-duplication: set. Attaching data to a name: dict. A fixed-size record whose fields mean different things, passed around as one value: tuple.' },
+    { level: 'EXPERT', who: 'the rule as the language states it', html: 'Dictionaries are indexed by keys, which can be any immutable type; strings and numbers always qualify, and tuples do if they contain only strings, numbers, or tuples. If a tuple contains any mutable object, directly or indirectly, it cannot be a key. Lists are excluded because they can be modified in place.' },
+    { level: 'IN PRACTICE', who: 'what to do on Monday', html: 'Turn a list into a set before doing membership tests in a loop — that one line converts a quadratic scan into a linear pass. Use <b>dict.get(key, default)</b> when a miss is normal, and plain <b>d[key]</b> when a miss is a bug you want to hear about immediately.' }
+  ]
+},
+{
+  id: 'streams', num: '05', span: '5.6', title: 'Looping tools describe the traversal',
+  concept: 'Iteration',
+  thesis: 'enumerate, zip, reversed, sorted, items — each says something about the walk that an index variable cannot.',
+  note: 'These are not conveniences bolted onto for-loops. Each one <em>names an intention</em>: this walk is paired, this walk is numbered, this walk is backwards. And one of them fixes a bug you would otherwise write.',
+  experiments: [
+    { name: 'pairs, positions, parallels', tag: 'normal',
+      code: "knights = {'gallahad': 'the pure', 'robin': 'the brave'}\nfor k, v in knights.items():\n    print(k, v)\nfor i, v in enumerate(['tic', 'tac', 'toe']):\n    print(i, v)\nquestions = ['name', 'quest']\nanswers = ['lancelot', 'the grail']\nfor q, a in zip(questions, answers):\n    print('What is your {0}?  It is {1}.'.format(q, a))",
+      rule: 'Each of these yields a tuple per step, and the loop target unpacks it. <b>for k, v in …</b> is tuple unpacking, the same mechanism as <b>x, y, z = t</b>.',
+      chain: ['items() yields (key, value) tuples in insertion order',
+              'enumerate() yields (index, value)',
+              'zip() yields one tuple per position across its inputs',
+              'the loop target unpacks each tuple into names'] },
+    { name: 'zip stops at the shortest', tag: 'edge',
+      code: "names = ['ana', 'ben', 'cara']\nscores = [10, 20]\nfor n, s in zip(names, scores):\n    print(n, s)\nprint('cara never appeared')",
+      rule: 'zip ends when its shortest input ends. The extra items are dropped silently — no error, no padding.',
+      chain: ['zip pulls one item from each input per step',
+              'scores runs out after two steps',
+              'the loop ends there, quietly',
+              'if silent truncation would be a bug, check the lengths yourself first'] },
+    { name: 'sorted vs .sort()', tag: 'normal', alabel: 'sorted() — builds', blabel: '.sort() — mutates',
+      code: "basket = ['pear', 'apple', 'orange', 'apple']\nfor f in sorted(set(basket)):\n    print(f)\nprint(basket)",
+      b: "basket = ['pear', 'apple', 'orange', 'apple']\nbasket.sort()\nfor f in basket:\n    print(f)\nprint(basket)",
+      rule: 'sorted() returns a new list and leaves the source alone, which is what lets you sort inside the <b>for</b> clause. .sort() reorders the original permanently. Wrapping in set() first is the idiom for unique-and-ordered.',
+      chain: ['set(basket) drops duplicates',
+              'sorted() allocates a new ordered list from it',
+              'the original list is never touched',
+              '.sort() in the B program destroys the original ordering forever'] },
+    { name: 'editing the list you are walking', tag: 'surprising', alabel: 'mutate while iterating', blabel: 'build a new list',
+      code: "data = [1, 2, 4, 6, 7]\nfor v in data:\n    if v % 2 == 0:\n        data.remove(v)\nprint(data)",
+      b: "data = [1, 2, 4, 6, 7]\nkept = []\nfor v in data:\n    if v % 2 != 0:\n        kept.append(v)\nprint(kept)",
+      rule: 'The loop holds a moving position, not a snapshot. Removing an element shifts the rest left while the position advances right — so an element slides past the cursor unseen.',
+      chain: ['the cursor sits at index 1, holding 2, and removes it',
+              'the next element now occupies the index the cursor just left',
+              'the cursor moves on and never inspects it',
+              'the survivor list on the right has no cursor to confuse — that is the fix'],
+      predict: { q: 'Removing every even number while looping over [1, 2, 4, 6, 7] leaves what?', opts: ['[1, 7]', '[1, 4, 7]', '[1, 6, 7]'], right: 1,
+        wrongModel: { 0: 'The loop sees every element regardless of removals.', 2: 'Only the last removal is affected.' },
+        rightModel: 'After 2 is removed at index 1, 4 slides into index 1 while the cursor moves to index 2 — 4 is skipped entirely. Step it and watch the cursor.' } }
+  ],
+  lenses: [
+    { level: 'ENGINEER', who: 'why it behaves this way', html: 'A for-loop asks its source for the next item until the source says stop. When the source is a list being edited, "next" is computed from a position that no longer means what it did. Iterate over one thing and build another; keep the two apart.' },
+    { level: 'EXPERT', who: 'the rule as the language states it', html: 'The tutorial states the safe habit directly: it is sometimes tempting to change a list while looping over it, but it is often simpler and safer to create a new list instead. Note also that sorted() returns a new sorted list while leaving the source unaltered — which is why it composes inside a for clause and .sort() does not.' },
+    { level: 'IN PRACTICE', who: 'what to do on Monday', html: 'Reach for a comprehension for filtering — it is the "build a new list" fix with the accumulator removed. If you must edit in place, iterate over a copy: <b>for v in data[:]</b>. And if you find yourself writing <b>for i in range(len(x))</b>, one of enumerate or zip is what you actually meant.' }
+  ]
+},
+{
+  id: 'truth', num: '06', span: '5.7 · 5.8', title: 'Evaluation stops as soon as the answer is known',
+  concept: 'Conditions & ordering',
+  thesis: 'and and or do not return True or False. They return the last thing they had to look at.',
+  note: 'Short-circuiting is not an optimisation you may ignore. It is a promise about <em>which expressions never run</em> — which is what makes <code>if x and x[0]</code> safe on an empty list. The greyed-out operands below were never evaluated.',
+  experiments: [
+    { name: 'or returns a value', tag: 'normal',
+      code: "string1, string2, string3 = '', 'Trondheim', 'Hammer Dance'\nnon_null = string1 or string2 or string3\nprint(non_null)\nprint(0 or [] or 'last one wins')",
+      rule: 'An <b>or</b> chain evaluates left to right and stops at the first truthy operand, returning <b>that operand</b> — not True. If every operand is falsy, it returns the last one.',
+      chain: ["'' is falsy, so evaluation continues",
+              "'Trondheim' is truthy, so the answer is decided",
+              "string3 is never evaluated at all",
+              'the value returned is the string itself, not a boolean'],
+      predict: { q: "What is '' or 'Trondheim' or 'Hammer Dance'?", opts: ['True', "'Trondheim'", "'Hammer Dance'"], right: 1,
+        wrongModel: { 0: 'Boolean operators always produce booleans.', 2: 'The chain evaluates every operand and keeps the last.' },
+        rightModel: 'or returns the first truthy operand and stops there. The last operand is only returned when everything before it was falsy.' } },
+    { name: 'the guard that protects', tag: 'edge',
+      code: "items = []\nif items and items[0] == 'x':\n    print('found')\nprint('no IndexError happened')\nsafe = items and items[0]\nprint(safe)",
+      rule: 'Because <b>and</b> stops at the first falsy operand, <b>items[0]</b> is never evaluated when the list is empty. Reversing the order of the operands would crash.',
+      chain: ['items is an empty list, which is falsy',
+              'and has its answer immediately',
+              'items[0] is skipped — no IndexError is possible',
+              'the expression evaluates to the empty list itself'] },
+    { name: 'chained comparison', tag: 'normal',
+      code: "a, b, c = 1, 2, 2\nprint(a < b == c)\nprint(a < b and b == c)\nprint(3 < 2 < print('this never runs'))",
+      rule: '<b>a &lt; b == c</b> means <b>a &lt; b and b == c</b>, with <b>b</b> evaluated once. And because it expands to <b>and</b>, it short-circuits: a false link stops the chain.',
+      chain: ['each adjacent pair becomes one comparison',
+              'the links are joined by and',
+              '3 < 2 is False, so the chain is decided',
+              'the call in the second link never runs — you can see it produced no output'] },
+    { name: 'sequences compare element by element', tag: 'normal',
+      code: "print((1, 2, 3) < (1, 2, 4))\nprint((1, 2, 3, 4) < (1, 2, 4))\nprint((1, 2) < (1, 2, -1))\nprint('ABC' < 'C' < 'Pascal' < 'Python')\nprint((1, 2, ('aa', 'ab')) < (1, 2, ('abc', 'a'), 4))",
+      rule: 'Lexicographic order: compare the first pair; if they differ that decides everything, otherwise move to the next. If one sequence runs out first, the shorter one is smaller. Nested sequences recurse.',
+      chain: ['compare index 0 — equal, so it decides nothing',
+              'compare index 1 — equal, keep going',
+              'the first differing pair decides the whole comparison',
+              'remaining elements are never examined, however large they are'],
+      predict: { q: 'Is (1, 2, 3, 4) < (1, 2, 4) True?', opts: ['False — the left one is longer', 'True — 3 < 4 decides it at index 2', 'TypeError'], right: 1,
+        wrongModel: { 0: 'Length is compared before contents.', 2: 'Tuples of different lengths cannot be compared.' },
+        rightModel: 'Length only matters when one sequence is a prefix of the other. Here index 2 differs, and that ends the comparison immediately.' } },
+    { name: 'comparing what has no order', tag: 'invalid',
+      code: "print([None, 'hello', 10] == [None, 'hello', 10])\nmixed = [None, 'hello', 10]\nmixed.sort()",
+      rule: 'Equality is defined for everything — it can always answer no. Ordering is not: <b>&lt;</b> between a string and None has no meaning, so sorting a mixed list raises TypeError rather than inventing an order.',
+      chain: ['== compares element by element and needs no ordering',
+              'sort() must ask "is this one smaller?"',
+              "'hello' < None has no defined answer",
+              'TypeError — Python refuses to invent an arbitrary ordering'] },
+    { name: 'equal is not identical', tag: 'surprising',
+      code: "a = [1, 2]\nb = [1, 2]\nc = a\nprint(a == b)\nprint(a is b)\nprint(a is c)\nb.append(3)\nprint(a)",
+      rule: '<b>==</b> asks whether the contents match. <b>is</b> asks whether it is the same object. Two lists can be equal forever and still be independent — until you edit one and find out.',
+      chain: ['a and b were built separately: two objects, equal contents',
+              'c = a binds a third name to the first object',
+              'is compares identity — the chips in the state panel',
+              'appending to b leaves a untouched, proving they were never the same object'] }
+  ],
+  lenses: [
+    { level: 'ENGINEER', who: 'why it behaves this way', html: 'Short-circuiting turns boolean operators into control flow. That is why the order of operands is a correctness decision, not a style one: the cheap or protective test goes first. <b>if user and user.is_active</b> is safe; the reverse crashes on None.' },
+    { level: 'EXPERT', who: 'the rule as the language states it', html: 'not binds tightest, then and, then or, so <b>A and not B or C</b> means <b>(A and (not B)) or C</b>. Comparison operators all share one priority, below the arithmetic ones. When used as a general value rather than a boolean, a short-circuit operator returns its last evaluated argument. Assignment inside an expression must be explicit with <b>:=</b> — which is how Python avoids C\'s <b>=</b> for <b>==</b> bug class.' },
+    { level: 'IN PRACTICE', who: 'what to do on Monday', html: '<b>x = config_value or DEFAULT</b> is idiomatic, but remember that 0 and \'\' and [] are all falsy — if zero is a legitimate value, test <b>is None</b> instead. And when a sort raises TypeError on mixed data, do not reach for a cast: pass a <b>key=</b> function that maps everything into one comparable domain.' }
+  ]
+}
+];
+</script>
+<script>/* ============================================================
+   Section 05 — instrument runtime
+   ============================================================ */
+(function () {
+  'use strict';
+  var run = PyCore.run;
+
+  /* ---------- dom helper ---------- */
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') n.className = attrs[k];
+      else if (k === 'html') n.innerHTML = attrs[k];
+      else if (k === 'text') n.textContent = attrs[k];
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function qs(s, r) { return (r || document).querySelector(s); }
+
+  /* ---------- syntax highlighting ---------- */
+  var KW = /^(for|in|if|else|elif|not|and|or|is|del|lambda|while|import|from|pass|return|break|continue)$/;
+  var CONST = /^(True|False|None)$/;
+  var BI = /^(print|len|range|sorted|reversed|enumerate|zip|list|tuple|set|dict|deque|abs|str|int|float|round|sum|min|max|map|filter|type|id|hash)$/;
+  function hl(line) {
+    var out = '', i = 0;
+    while (i < line.length) {
+      var c = line[i];
+      if (c === '#') { out += '<span class="c">' + esc(line.slice(i)) + '</span>'; break; }
+      if (c === '"' || c === "'") {
+        var j = i + 1; while (j < line.length && line[j] !== c) j += line[j] === '\\' ? 2 : 1;
+        out += '<span class="s">' + esc(line.slice(i, j + 1)) + '</span>'; i = j + 1; continue;
+      }
+      if (/[0-9]/.test(c) && !/[A-Za-z_]/.test(line[i - 1] || ' ')) {
+        var m = /^[0-9.]+/.exec(line.slice(i))[0];
+        out += '<span class="n">' + m + '</span>'; i += m.length; continue;
+      }
+      if (/[A-Za-z_]/.test(c)) {
+        var w = /^[A-Za-z_][A-Za-z0-9_]*/.exec(line.slice(i))[0];
+        var cls = KW.test(w) ? 'k' : CONST.test(w) ? 'n' : BI.test(w) ? 'b' : (line[i - 1] === '.' ? 'm' : '');
+        out += cls ? '<span class="' + cls + '">' + w + '</span>' : esc(w);
+        i += w.length; continue;
+      }
+      out += /[[\](){}:,.]/.test(c) ? '<span class="p">' + esc(c) + '</span>' : esc(c);
+      i++;
+    }
+    return out || '&nbsp;';
+  }
+
+  /* ---------- persistent ledger ---------- */
+  var Ledger = {
+    data: { ran: {}, predicted: {}, firstTry: {}, wrong: [], levels: {} },
+    load: function () { try { var s = localStorage.getItem('pf.s5'); if (s) this.data = JSON.parse(s); } catch (e) {} },
+    save: function () { try { localStorage.setItem('pf.s5', JSON.stringify(this.data)); } catch (e) {} this.paint(); },
+    ran: function (lab, exp) { this.data.ran[lab + '/' + exp] = 1; this.save(); },
+    predict: function (lab, exp, ok, model) {
+      var key = lab + '/' + exp;
+      if (this.data.predicted[key] === undefined) { this.data.predicted[key] = 1; this.data.firstTry[key] = ok ? 1 : 0; if (!ok && model) this.data.wrong.push(model); }
+      this.save();
+    },
+    count: function (o) { return Object.keys(o).length; },
+    correct: function () { var d = this.data.firstTry, n = 0; for (var k in d) n += d[k]; return n; },
+    labScore: function (lab) {
+      var cfg = LABS.filter(function (l) { return l.id === lab; })[0];
+      var total = cfg.experiments.length, done = 0, preds = 0, ok = 0;
+      cfg.experiments.forEach(function (e, i) {
+        if (this.data.ran[lab + '/' + i]) done++;
+        if (this.data.predicted[lab + '/' + i] !== undefined) { preds++; ok += this.data.firstTry[lab + '/' + i]; }
+      }, this);
+      var explored = done / total;
+      return Math.round(100 * (preds ? explored * 0.65 + (ok / preds) * 0.35 : explored * 0.65));
+    },
+    visited: function (lab) { return LABS.filter(function (l) { return l.id === lab; })[0].experiments.some(function (e, i) { return Ledger.data.ran[lab + '/' + i]; }); },
+    paint: function () {
+      var runs = this.count(this.data.ran), preds = this.count(this.data.predicted), ok = this.correct();
+      var m = qs('#meter');
+      if (m) m.innerHTML = '<div><span>experiments</span><b>' + runs + '</b></div>' +
+        '<div><span>predictions</span><b>' + preds + '</b></div>' +
+        '<div><span>right first try</span><b>' + ok + '</b></div>';
+      LABS.forEach(function (l) {
+        var a = qs('#nav-' + l.id);
+        if (a) a.classList.toggle('done', Ledger.visited(l.id));
+      });
+      paintSynthesis();
+    }
+  };
+
+  /* ============================================================
+     STATE VIEW — the shape of the view follows the shape of the object
+     ============================================================ */
+  function slotOf(s, n) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 131 + s.charCodeAt(i)) >>> 0; return h % n; }
+
+  function renderVars(host, ev, prev) {
+    host.innerHTML = '';
+    var vars = (ev.state.vars || []).filter(function (v) { return v.name !== '__builtins__'; });
+    if (ev.state.locals) ev.state.locals.forEach(function (v) { vars.push({ name: v.name, value: v.value, type: v.type, id: v.id, local: true }); });
+    if (!vars.length) { host.appendChild(el('div', { class: 'empty', text: 'no names bound yet' })); return; }
+    var counts = {};
+    vars.forEach(function (v) { if (v.id) counts[v.id] = (counts[v.id] || 0) + 1; });
+    var prevMap = {};
+    if (prev) (prev.state.vars || []).forEach(function (v) { prevMap[v.name] = v; });
+
+    vars.forEach(function (v) {
+      var changed = !prevMap[v.name] || PyCore.repr(prevMap[v.name].value) !== PyCore.repr(v.value);
+      var head = el('div', { class: 'varhead' }, [
+        el('span', { class: 'name', text: v.name }),
+        el('span', { class: 'meta', text: v.type + (v.local ? ' · comprehension scope' : '') }),
+        v.id ? el('span', { class: 'oid', text: '#' + v.id + (counts[v.id] > 1 ? ' · aliased' : '') }) : null
+      ]);
+      var block = el('div', {}, [head]);
+      block.appendChild(body(v, changed, ev, prevMap[v.name]));
+      host.appendChild(block);
+    });
+  }
+
+  function body(v, changed, ev, prevVar) {
+    var val = v.value, cursor = (ev.kind === 'iter' && ev.sourceId === v.id) ? ev.index : -1;
+    if (val.t === 'list' || val.t === 'tuple' || val.t === 'deque') {
+      if (!val.v.length) return el('div', { class: 'empty', text: val.t === 'tuple' ? '()' : val.t === 'deque' ? 'deque([])' : '[]  empty, same object' });
+      var wrap = el('div', { class: 'cells' });
+      val.v.forEach(function (x, i) {
+        var was = prevVar && prevVar.value.v && prevVar.value.v[i];
+        var moved = changed && (!was || PyCore.repr(was) !== PyCore.repr(x));
+        wrap.appendChild(el('div', {
+          class: 'cell' + (val.t === 'tuple' ? ' locked' : '') + (moved ? ' flash' : '') + (i === cursor ? ' cursor' : '')
+        }, [el('span', { class: 'ix', text: i }), document.createTextNode(PyCore.repr(x))]));
+      });
+      return wrap;
+    }
+    if (val.t === 'set') {
+      var lat = el('div', { class: 'lattice' });
+      var slots = [], N = 8;
+      for (var i = 0; i < N; i++) slots.push([]);
+      val.v.forEach(function (x) { slots[slotOf(PyCore.repr(x), N)].push(PyCore.repr(x)); });
+      slots.forEach(function (items, ix) {
+        lat.appendChild(el('div', { class: 'slotbox' + (items.length ? ' filled' : '') }, [
+          el('u', { text: 'slot ' + ix }), document.createTextNode(items.length ? items.join(' ') : '·')
+        ]));
+      });
+      return el('div', {}, [lat, el('div', { class: 'caption', text: 'an eight-slot model: position comes from the value, not from you. A real table resizes and rehashes — the principle is what matters here.' })]);
+    }
+    if (val.t === 'dict') {
+      if (!val.k.length) return el('div', { class: 'empty', text: '{}  no pairs' });
+      var kv = el('div', { class: 'kv' });
+      val.k.forEach(function (k, i) {
+        var was = prevVar && prevVar.value.k && prevVar.value.val && prevVar.value.k[i] && PyCore.repr(prevVar.value.k[i]) === PyCore.repr(k) ? PyCore.repr(prevVar.value.val[i]) : null;
+        var hot = was === null || was !== PyCore.repr(val.val[i]);
+        kv.appendChild(el('span', { class: 'slot', text: i }));
+        kv.appendChild(el('div', { class: 'pair' + (hot && changed ? ' flash' : '') }, [
+          el('span', { class: 'key', text: PyCore.repr(k) }),
+          el('span', { class: 'arrow', text: '→' }),
+          document.createTextNode(PyCore.repr(val.val[i]))
+        ]));
+      });
+      return kv;
+    }
+    if (val.t === 'stream') {
+      var t = el('div', { class: 'cells' });
+      val.v.slice(0, 12).forEach(function (x) { t.appendChild(el('div', { class: 'cell locked' }, [PyCore.repr(x)])); });
+      return t;
+    }
+    return el('div', { class: 'scalar' + (changed ? ' flash' : ''), text: PyCore.repr(val) });
+  }
+
+  /* ============================================================
+     TIMELINE — one traced program
+     ============================================================ */
+  function Timeline(code) { this.setCode(code); }
+  Timeline.prototype.setCode = function (code) {
+    this.code = code;
+    try { this.res = run(code, { limit: 4000 }); }
+    catch (e) { this.res = { events: [{ kind: 'error', text: String(e.msg || e), state: { vars: [], out: [], stats: {} } }], error: { type: 'Error', msg: String(e.msg || e) }, out: [], stats: {} }; }
+    this.i = 0;
+  };
+  Timeline.prototype.ev = function () { return this.res.events[this.i]; };
+  Timeline.prototype.prev = function () { return this.i > 0 ? this.res.events[this.i - 1] : null; };
+  Timeline.prototype.last = function () { return this.res.events.length - 1; };
+
+  /* ============================================================
+     LAB
+     ============================================================ */
+  function Lab(cfg, index) {
+    this.cfg = cfg; this.index = index; this.exp = 0; this.playing = false; this.speed = 420;
+    this.build();
+    this.load(0);
+  }
+
+  Lab.prototype.build = function () {
+    var self = this, cfg = this.cfg;
+    var sec = el('section', { class: 'lab', id: cfg.id });
+    sec.appendChild(el('div', { class: 'lab-head' }, [
+      el('div', { class: 'idx' }, [el('u', { text: cfg.num }), el('span', { text: cfg.span })]),
+      el('div', { class: 'thesis' }, [
+        el('h2', { text: cfg.title }),
+        el('p', { class: 'note', html: cfg.thesis }),
+        el('p', { class: 'note', html: cfg.note })
+      ])
+    ]));
+
+    this.chips = el('div', { class: 'experiments' });
+    cfg.experiments.forEach(function (e, i) {
+      self.chips.appendChild(el('button', { onclick: function () { self.load(i); } }, [
+        document.createTextNode(e.name),
+        el('span', { class: 'tag tag-' + (e.tag === 'surprising' ? 'surprise' : e.tag), text: e.tag === 'normal' ? '' : e.tag.toUpperCase() })
+      ]));
+    });
+    sec.appendChild(this.chips);
+
+    this.predictHost = el('div');
+    sec.appendChild(this.predictHost);
+
+    /* bench */
+    this.codeHostA = el('div', { class: 'code' });
+    this.codeHostB = el('div', { class: 'code' });
+    this.stateA = el('div', { class: 'state' });
+    this.headA = el('header', {}, [el('span', { text: 'PROGRAM' }), el('span', { class: 'right' })]);
+    this.headB = el('header', {}, [el('span', { text: 'STATE' }), el('span', { class: 'right' })]);
+
+    this.transport = el('div', { class: 'transport' });
+    this.ribbon = el('div', { class: 'ribbon' });
+    this.buildTransport();
+
+    var paneA = el('div', { class: 'pane' }, [this.headA, this.codeHostA, this.transport, this.ribbon]);
+    var paneB = el('div', { class: 'pane' }, [this.headB, this.stateB]);
+    this.paneMid = el('div', { class: 'pane' }, [el('header', {}, [el('span', { text: 'PROGRAM B' }), el('span', { class: 'right' })]), this.codeHostB, this.stateA]);
+    this.bench = el('div', { class: 'bench' }, [paneA, paneB]);
+    sec.appendChild(this.bench);
+
+    this.why = el('div', { class: 'why' });
+    this.stdout = el('div', { class: 'stdout' });
+    sec.appendChild(el('div', { class: 'readouts' }, [this.why, this.stdout]));
+
+    this.aux = el('div');
+    sec.appendChild(this.aux);
+
+    var lenses = el('div', { class: 'lenses' });
+    cfg.lenses.forEach(function (L) {
+      var lens = el('div', { class: 'lens' });
+      var btn = el('button', { onclick: function () { lens.classList.toggle('open'); btn.querySelector('.chev').textContent = lens.classList.contains('open') ? '−' : '+'; } }, [
+        el('span', { class: 'chev', text: '+' }), el('span', { text: L.level }), el('span', { class: 'who', text: L.who })
+      ]);
+      lens.appendChild(btn);
+      lens.appendChild(el('div', { class: 'body' }, [el('p', { class: 'note', html: L.html })]));
+      lenses.appendChild(lens);
+    });
+    sec.appendChild(lenses);
+
+    qs('#labs').appendChild(sec);
+    this.sec = sec;
+    sec.addEventListener('pointerdown', function () { window.activeLab = self; });
+  };
+
+  Lab.prototype.buildTransport = function () {
+    var self = this;
+    function b(label, title, fn, cls) {
+      var n = el('button', { title: title, onclick: fn, class: cls || '' }, [label]);
+      return n;
+    }
+    this.bRun = b('RUN', 'Run to the end (Enter)', function () { self.play(); }, 'primary');
+    this.bBack = b('◀', 'Step back one event (←)', function () { self.pause(); self.move(-1); });
+    this.bFwd = b('▶', 'Step forward one event (→)', function () { self.pause(); self.move(1); });
+    this.bReset = b('RESET', 'Back to initial state (R)', function () { self.pause(); self.goto(0); });
+    this.bEdit = b('EDIT', 'Modify the program and re-trace', function () { self.toggleEdit(); });
+    this.counter = el('span', { class: 'count' });
+    var speeds = el('span', { class: 'speed' });
+    [['SLOW', 900], ['MED', 420], ['FAST', 140]].forEach(function (s) {
+      var n = el('button', { onclick: function () { self.speed = s[1]; Array.prototype.forEach.call(speeds.children, function (c) { c.classList.remove('primary'); }); n.classList.add('primary'); if (self.playing) { self.pause(); self.play(); } } }, [s[0]]);
+      if (s[1] === 420) n.classList.add('primary');
+      speeds.appendChild(n);
+    });
+    [this.bRun, this.bBack, this.bFwd, this.bReset, this.bEdit].forEach(function (n) { self.transport.appendChild(n); });
+    this.transport.appendChild(speeds);
+    this.transport.appendChild(this.counter);
+
+    this.tape = el('div', { class: 'tape', role: 'slider', tabindex: '0', 'aria-label': 'execution timeline — arrow keys scrub' });
+    this.tapeB = el('div', { class: 'tape' });
+    this.tapeLabelA = el('div', { class: 'tapelabel', text: 'TIMELINE' });
+    this.tapeLabelB = el('div', { class: 'tapelabel', text: 'TIMELINE B' });
+    this.now = el('div', { class: 'now' }, [el('span', { class: 'kind' }), el('span', { class: 'txt' })]);
+    this.ribbon.appendChild(this.tapeLabelA);
+    this.ribbon.appendChild(this.tape);
+    this.ribbon.appendChild(this.tapeLabelB);
+    this.ribbon.appendChild(this.tapeB);
+    this.ribbon.appendChild(this.now);
+    this.ribbon.appendChild(el('div', { class: 'legend', html:
+      '<i style="background:var(--bind)"></i>name binds' +
+      '<i style="background:var(--mutate)"></i>object changes' +
+      '<i style="background:var(--read)"></i>read / compare' +
+      '<i style="background:var(--out)"></i>emitted / printed' +
+      '<i style="background:var(--hash)"></i>hashing / scope' +
+      '<i style="background:var(--err)"></i>execution stops' }));
+    var drag = false;
+    function pick(e) {
+      var r = self.tape.getBoundingClientRect();
+      var x = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1);
+      self.pause(); self.goto(Math.round(x * self.A.last()));
+    }
+    this.tape.addEventListener('pointerdown', function (e) { drag = true; self.tape.setPointerCapture(e.pointerId); pick(e); });
+    this.tape.addEventListener('pointermove', function (e) { if (drag) pick(e); });
+    this.tape.addEventListener('pointerup', function () { drag = false; });
+    this.tape.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { self.move(-1); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { self.move(1); e.preventDefault(); }
+    });
+  };
+
+  Lab.prototype.load = function (i) {
+    var self = this;
+    this.pause();
+    this.exp = i;
+    var e = this.cfg.experiments[i];
+    Array.prototype.forEach.call(this.chips.children, function (c, j) { c.classList.toggle('on', j === i); });
+    this.dual = !!e.b;
+    this.A = new Timeline(e.code);
+    this.B = e.b ? new Timeline(e.b) : null;
+    this.editing = false;
+    this.bench.innerHTML = '';
+    this.headA.firstChild.textContent = this.dual ? 'PROGRAM A — ' + (e.alabel || 'A') : 'PROGRAM';
+    if (this.dual) {
+      var hB = el('header', {}, [el('span', { text: 'PROGRAM B — ' + (e.blabel || 'B') }), el('span', { class: 'right' })]);
+      this.bench.appendChild(el('div', { class: 'pane' }, [this.headA, this.codeHostA]));
+      this.bench.appendChild(el('div', { class: 'pane' }, [hB, this.codeHostB]));
+      this.bench.appendChild(el('div', { class: 'pane span' }, [this.transport, this.ribbon]));
+      this.bench.appendChild(el('div', { class: 'pane' }, [el('header', {}, [el('span', { text: 'STATE A' }), el('span', { class: 'right' })]), this.stateA]));
+      this.bench.appendChild(el('div', { class: 'pane' }, [el('header', {}, [el('span', { text: 'STATE B' }), el('span', { class: 'right' })]), this.stateBB || (this.stateBB = el('div', { class: 'state' }))]));
+      this.tapeB.style.display = 'flex'; this.tapeLabelB.style.display = 'block'; this.tapeLabelA.textContent = 'TIMELINE A — ' + (e.alabel || 'A');
+      this.tapeLabelB.textContent = 'TIMELINE B — ' + (e.blabel || 'B');
+    } else {
+      this.bench.appendChild(el('div', { class: 'pane' }, [this.headA, this.codeHostA, this.transport, this.ribbon]));
+      this.bench.appendChild(el('div', { class: 'pane' }, [this.headB, this.stateA]));
+      this.tapeB.style.display = 'none'; this.tapeLabelB.style.display = 'none'; this.tapeLabelA.textContent = 'TIMELINE';
+    }
+    this.renderPredict(e);
+    this.renderCode();
+    this.buildTape();
+    this.goto(0);
+    this.renderAux();
+  };
+
+  Lab.prototype.renderPredict = function (e) {
+    var self = this, key = this.cfg.id + '/' + this.exp;
+    this.predictHost.innerHTML = '';
+    if (!e.predict) return;
+    var p = e.predict, answered = Ledger.data.predicted[key] !== undefined;
+    var box = el('div', { class: 'predict' });
+    var inner = el('div', {});
+    inner.appendChild(el('div', { class: 'eyebrow', text: 'BEFORE YOU RUN IT' }));
+    inner.appendChild(el('div', { class: 'q', html: p.q }));
+    var opts = el('div', { class: 'opts' });
+    var verdict = el('div');
+    p.opts.forEach(function (o, i) {
+      var btn = el('button', { html: esc(o) });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var ok = i === p.right;
+        Array.prototype.forEach.call(opts.children, function (c, j) {
+          c.disabled = true;
+          if (j === p.right) c.classList.add('right');
+          if (j === i && !ok) c.classList.add('wrong');
+        });
+        Ledger.predict(self.cfg.id, self.exp, ok, ok ? null : (p.wrongModel && p.wrongModel[i]));
+        verdict.innerHTML = '';
+        verdict.appendChild(el('div', { class: 'verdictline' }, [
+          el('div', { class: 'lbl', text: ok ? 'MATCHED — NOW WATCH THE MECHANISM' : 'MISMATCH — HERE IS THE MODEL THAT PRODUCED IT' }),
+          el('div', { class: 'models' }, [
+            el('div', {}, [el('h4', { text: ok ? 'YOUR MODEL' : 'THE MODEL BEHIND YOUR ANSWER' }),
+              el('div', { class: ok ? 'pythons' : 'yours', html: ok ? 'Consistent with Python here.' : esc((p.wrongModel && p.wrongModel[i]) || 'A different rule than the one Python applies.') })]),
+            el('div', {}, [el('h4', { text: "PYTHON'S MODEL" }), el('div', { class: 'pythons', html: p.rightModel })])
+          ])
+        ]));
+        self.goto(0); self.play();
+      });
+      if (answered) { btn.disabled = true; if (i === p.right) btn.classList.add('right'); }
+      opts.appendChild(btn);
+    });
+    inner.appendChild(opts);
+    if (answered) verdict.appendChild(el('div', { class: 'verdictline' }, [
+      el('div', { class: 'lbl', text: 'ALREADY ANSWERED — ' + (Ledger.data.firstTry[key] ? 'MATCHED' : 'MISMATCHED') }),
+      el('div', { class: 'models' }, [el('div', {}, [el('h4', { text: "PYTHON'S MODEL" }), el('div', { class: 'pythons', html: p.rightModel })])])
+    ]));
+    inner.appendChild(verdict);
+    box.appendChild(inner);
+    this.predictHost.appendChild(box);
+  };
+
+  Lab.prototype.renderCode = function () {
+    var self = this;
+    [[this.codeHostA, this.A], [this.codeHostB, this.B]].forEach(function (pair) {
+      var host = pair[0], tl = pair[1];
+      if (!tl) return;
+      host.innerHTML = '';
+      var lines = tl.code.split('\n');
+      var nums = el('div', { class: 'nums' });
+      lines.forEach(function (_, i) { nums.appendChild(el('div', { text: i + 1 })); });
+      host.appendChild(nums);
+      if (self.editing && tl === self.A) {
+        var ta = el('textarea', { spellcheck: 'false', 'aria-label': 'program source' });
+        ta.value = tl.code;
+        ta.style.height = Math.max(160, lines.length * 21 + 22) + 'px';
+        ta.addEventListener('input', function () {
+          nums.innerHTML = '';
+          ta.value.split('\n').forEach(function (_, i) { nums.appendChild(el('div', { text: i + 1 })); });
+        });
+        host.appendChild(ta);
+        self.textarea = ta;
+      } else {
+        var pre = el('pre', {});
+        lines.forEach(function (l, i) { pre.appendChild(el('span', { class: 'ln', 'data-line': i + 1, html: hl(l) })); });
+        host.appendChild(pre);
+      }
+    });
+  };
+
+  Lab.prototype.toggleEdit = function () {
+    if (this.editing) {
+      var src = this.textarea.value;
+      this.editing = false;
+      this.A.setCode(src);
+      this.renderCode(); this.buildTape(); this.goto(0);
+      this.bEdit.textContent = 'EDIT';
+      this.bRun.disabled = false;
+    } else {
+      this.pause();
+      this.editing = true;
+      this.renderCode();
+      this.bEdit.textContent = 'TRACE IT';
+      this.bRun.disabled = true;
+      this.textarea.focus();
+    }
+  };
+
+  Lab.prototype.buildTape = function () {
+    var self = this;
+    [[this.tape, this.A], [this.tapeB, this.B]].forEach(function (pair) {
+      var host = pair[0], tl = pair[1];
+      host.innerHTML = '';
+      if (!tl) return;
+      tl.res.events.forEach(function (e, i) {
+        host.appendChild(el('div', { class: 'tick ' + e.kind, title: (e.kind + ' · ' + (e.text || '')).slice(0, 90) }));
+      });
+    });
+  };
+
+  Lab.prototype.play = function () {
+    var self = this;
+    if (this.editing) return;
+    if (this.A.i >= this.A.last() && (!this.B || this.B.i >= this.B.last())) this.goto(0);
+    this.playing = true;
+    this.bRun.textContent = 'PAUSE';
+    Ledger.ran(this.cfg.id, this.exp);
+    clearInterval(this.timer);
+    this.timer = setInterval(function () {
+      var done = !self.move(1);
+      if (done) self.pause();
+    }, this.speed);
+  };
+  Lab.prototype.pause = function () {
+    this.playing = false; clearInterval(this.timer);
+    if (this.bRun) this.bRun.textContent = 'RUN';
+  };
+  Lab.prototype.move = function (d) {
+    var moved = false;
+    if (d > 0) Ledger.ran(this.cfg.id, this.exp);
+    if (this.A.i + d >= 0 && this.A.i + d <= this.A.last()) { this.A.i += d; moved = true; }
+    if (this.B && this.B.i + d >= 0 && this.B.i + d <= this.B.last()) { this.B.i += d; moved = true; }
+    this.paint();
+    return moved;
+  };
+  Lab.prototype.goto = function (i) {
+    this.A.i = Math.max(0, Math.min(i, this.A.last()));
+    if (this.B) this.B.i = Math.max(0, Math.min(i, this.B.last()));
+    this.paint();
+  };
+
+  Lab.prototype.paint = function () {
+    var self = this, e = this.A.ev(), exp = this.cfg.experiments[this.exp];
+    /* code line highlight */
+    [[this.codeHostA, this.A], [this.codeHostB, this.B]].forEach(function (pair) {
+      var pre = pair[0].querySelector('pre'), tl = pair[1];
+      if (!pre || !tl) return;
+      var cur = tl.ev();
+      Array.prototype.forEach.call(pre.children, function (ln) {
+        var n = +ln.getAttribute('data-line');
+        ln.className = 'ln' + (cur.line === n ? (cur.kind === 'error' ? ' err' : ' cur') : '');
+      });
+    });
+    /* ticks */
+    [[this.tape, this.A], [this.tapeB, this.B]].forEach(function (pair) {
+      var host = pair[0], tl = pair[1];
+      if (!tl) return;
+      Array.prototype.forEach.call(host.children, function (t, i) {
+        t.classList.toggle('past', i <= tl.i);
+        t.classList.toggle('cur', i === tl.i);
+      });
+    });
+    this.counter.textContent = 'EVENT ' + this.A.i + ' / ' + this.A.last();
+    this.now.className = 'now' + (e.kind === 'error' ? ' error' : '');
+    this.now.children[0].textContent = e.kind.toUpperCase();
+    this.now.children[1].textContent = e.text || '—';
+    this.bBack.disabled = this.A.i === 0;
+    this.bFwd.disabled = this.A.i === this.A.last() && (!this.B || this.B.i === this.B.last());
+
+    renderVars(this.stateA, e, this.A.prev());
+    if (this.B) renderVars(this.stateBB, this.B.ev(), this.B.prev());
+
+    /* why */
+    this.why.innerHTML = '';
+    this.why.appendChild(el('div', { class: 'eyebrow', text: 'WHY THIS HAPPENS' }));
+    this.why.appendChild(el('p', { class: 'rule', html: exp.rule }));
+    var chain = el('div', { class: 'chain' });
+    var frac = this.A.last() ? this.A.i / this.A.last() : 0;
+    var hot = Math.min(exp.chain.length - 1, Math.floor(frac * exp.chain.length));
+    exp.chain.forEach(function (c, i) { chain.appendChild(el('div', { class: i === hot ? 'hot' : '', html: c })); });
+    this.why.appendChild(chain);
+
+    /* output + ledger */
+    var st = e.state.stats || {}, out = e.state.out || [];
+    this.stdout.innerHTML = '';
+    this.stdout.appendChild(el('div', { class: 'eyebrow', text: 'OUTPUT' }));
+    this.stdout.appendChild(el('pre', { text: out.length ? out.join('\n') : '—' }));
+    var ledger = el('div', { class: 'ledger' });
+    function row(k, v) { ledger.appendChild(el('div', { html: k + ' <b>' + v + '</b>' })); }
+    row('events', this.A.i + ' of ' + this.A.last());
+    row('elements moved', st.shifts || 0);
+    row('comparisons', st.comparisons || 0);
+    row('lookups / probes', st.probes || 0);
+    if (this.B) {
+      var sb = this.B.ev().state.stats || {};
+      row('B: elements moved', sb.shifts || 0);
+      row('B: comparisons', sb.comparisons || 0);
+    } else row('new objects built', st.allocations || 0);
+    this.stdout.appendChild(ledger);
+
+    if (e.kind === 'error' && this.A.res.error) this.stdout.appendChild(errorBox(this.A.res.error, exp));
+    this.renderAux();
+  };
+
+  function errorBox(er, exp) {
+    var TAX = {
+      ValueError: ['a value that is not present or not acceptable', 'search by value found nothing equal', 'search by a value that exists, or test with <b>in</b> first'],
+      IndexError: ['a position outside the sequence', 'the index was computed from a length that no longer holds', 'check the length, or catch the empty case before indexing'],
+      KeyError: ['a key the mapping does not hold', 'subscripting demands the key exist', 'use <b>get(key, default)</b> when a miss is normal'],
+      TypeError: ['an operation this type does not define', 'the object refused the operation, rather than guessing', 'convert first, or pass <b>key=</b> so everything lands in one comparable domain'],
+      NameError: ['a name with no binding', 'the name was deleted or never bound in this scope', 'bind it, or check that you are not reading a comprehension-local name'],
+      SyntaxError: ['source that is not valid Python', 'the parser could not build a statement — nothing executed', 'fix the grammar; there is no runtime state to inspect'],
+      ZeroDivisionError: ['a division by zero', 'no numeric result exists', 'guard the denominator']
+    };
+    var t = TAX[er.type] || ['—', '—', '—'];
+    return el('div', { class: 'errbox' }, [
+      el('div', { class: 't', text: er.type + ': ' + er.msg }),
+      el('dl', {}, [
+        el('dt', { text: 'ASKED FOR' }), el('dd', { html: t[0] }),
+        el('dt', { text: 'WHY REFUSED' }), el('dd', { html: t[1] }),
+        el('dt', { text: 'FIX' }), el('dd', { html: t[2] })
+      ])
+    ]);
+  }
+
+  /* per-lab auxiliary instruments */
+  Lab.prototype.renderAux = function () {
+    var e = this.cfg.experiments[this.exp];
+    this.aux.innerHTML = '';
+    if (this.dual) this.aux.appendChild(deltaTable(this.A, this.B, e));
+    if (this.cfg.id === 'discipline' && this.exp === 2) this.aux.appendChild(costPlot());
+    if (this.cfg.id === 'comprehension') this.aux.appendChild(emitTape(this.A));
+  };
+
+  function deltaTable(A, B, exp) {
+    var a = A.res, b = B.res;
+    var rows = [
+      ['output', a.out.join(' ⏎ ') || '—', b.out.join(' ⏎ ') || '—', a.out.join('\n') === b.out.join('\n') ? 'same' : 'different'],
+      ['elements moved', a.stats.shifts || 0, b.stats.shifts || 0, null],
+      ['comparisons', a.stats.comparisons || 0, b.stats.comparisons || 0, null],
+      ['lookups / probes', a.stats.probes || 0, b.stats.probes || 0, null],
+      ['new objects built', a.stats.allocations || 0, b.stats.allocations || 0, null],
+      ['traced events', A.last(), B.last(), null],
+      ['ends in', a.error ? a.error.type : 'normal completion', b.error ? b.error.type : 'normal completion', null]
+    ];
+    var t = el('table');
+    t.appendChild(el('tr', {}, [el('th', { text: 'MEASURED' }), el('th', { text: (exp.alabel || 'A').toUpperCase() }), el('th', { text: (exp.blabel || 'B').toUpperCase() }), el('th', { text: 'VERDICT' })]));
+    rows.forEach(function (r) {
+      var same = String(r[1]) === String(r[2]);
+      var verdict = r[3] || (same ? 'identical' : (typeof r[1] === 'number' ? (r[1] < r[2] ? 'A does less work' : 'B does less work') : 'differs'));
+      t.appendChild(el('tr', {}, [
+        el('td', { text: r[0] }),
+        el('td', { class: !same && typeof r[1] === 'number' ? (r[1] < r[2] ? 'win' : 'lose') : '', text: String(r[1]) }),
+        el('td', { class: !same && typeof r[2] === 'number' ? (r[2] < r[1] ? 'win' : 'lose') : '', text: String(r[2]) }),
+        el('td', { text: verdict })
+      ]));
+    });
+    return el('div', { class: 'delta' }, [el('div', { class: 'eyebrow', text: 'DIFFERENCE — MEASURED FROM THE TWO TRACES' }), t]);
+  }
+
+  var costCache = null;
+  function costPlot() {
+    if (!costCache) {
+      var ns = [10, 25, 50, 75, 100, 125], A = [], B = [];
+      ns.forEach(function (n) {
+        var a = run('log = []\nfor i in range(' + n + '):\n    log.insert(0, i)', { light: true, limit: 20000 });
+        var b = run('from collections import deque\nlog = deque()\nfor i in range(' + n + '):\n    log.appendleft(i)', { light: true, limit: 20000 });
+        A.push(a.stats.shifts); B.push(b.stats.shifts);
+      });
+      costCache = { ns: ns, A: A, B: B };
+    }
+    var c = costCache, W = 560, H = 200, pad = 34;
+    var maxY = Math.max.apply(null, c.A) || 1, maxX = c.ns[c.ns.length - 1];
+    function pt(i, arr) { return (pad + (c.ns[i] / maxX) * (W - pad - 12)) + ',' + (H - pad - (arr[i] / maxY) * (H - pad - 16)); }
+    var svg = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="measured element moves versus number of operations">';
+    for (var g = 0; g <= 4; g++) { var y = H - pad - g / 4 * (H - pad - 16); svg += '<line class="grid" x1="' + pad + '" y1="' + y + '" x2="' + (W - 12) + '" y2="' + y + '"/>'; }
+    svg += '<line class="axis" x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - 12) + '" y2="' + (H - pad) + '"/>';
+    svg += '<line class="axis" x1="' + pad + '" y1="16" x2="' + pad + '" y2="' + (H - pad) + '"/>';
+    svg += '<polyline fill="none" stroke="#f0b429" stroke-width="1.5" points="' + c.ns.map(function (_, i) { return pt(i, c.A); }).join(' ') + '"/>';
+    svg += '<polyline fill="none" stroke="#4fd08a" stroke-width="1.5" points="' + c.ns.map(function (_, i) { return pt(i, c.B); }).join(' ') + '"/>';
+    c.ns.forEach(function (n, i) {
+      svg += '<circle cx="' + pt(i, c.A).split(',')[0] + '" cy="' + pt(i, c.A).split(',')[1] + '" r="2.5" fill="#f0b429"/>';
+      svg += '<circle cx="' + pt(i, c.B).split(',')[0] + '" cy="' + pt(i, c.B).split(',')[1] + '" r="2.5" fill="#4fd08a"/>';
+      svg += '<text x="' + pt(i, c.A).split(',')[0] + '" y="' + (H - pad + 14) + '" text-anchor="middle">' + n + '</text>';
+    });
+    svg += '<text x="' + pad + '" y="12">' + maxY + ' MOVES</text>';
+    svg += '<text x="' + (W - 12) + '" y="12" text-anchor="end">AMBER list.insert(0,x) · GREEN deque.appendleft(x)</text>';
+    svg += '</svg>';
+    return el('div', { class: 'delta' }, [
+      el('div', { class: 'eyebrow', text: 'MEASURED COST — EACH POINT IS A REAL RUN AT THAT LENGTH' }),
+      el('div', { html: svg }),
+      el('p', { class: 'gutter-note', html: 'Nothing here is a formula. Six programs were executed for each line and the element moves counted. The amber curve is the sum 0+1+2+…+n; the green line never leaves zero.' })
+    ]);
+  }
+
+  function emitTape(A) {
+    var evs = A.res.events.slice(0, A.i + 1).filter(function (e) { return e.kind === 'emit' || e.kind === 'filter' || e.kind === 'dedup'; });
+    var wrap = el('div', { class: 'cells' });
+    if (!evs.length) wrap.appendChild(el('div', { class: 'empty', text: 'no items evaluated yet — step the trace' }));
+    evs.slice(-40).forEach(function (e) {
+      var kept = e.kind === 'emit' || (e.kind === 'filter' && e.kept);
+      wrap.appendChild(el('div', {
+        class: 'cell' + (kept ? '' : ' locked'),
+        title: e.text,
+        style: kept ? 'border-color:#4fd08a;color:#4fd08a' : 'opacity:.5;text-decoration:line-through'
+      }, [(e.detail && (e.detail.value || e.detail.item)) || '·']));
+    });
+    return el('div', { class: 'delta' }, [
+      el('div', { class: 'eyebrow', text: 'ITEM FATE — GREEN EMITTED, STRUCK-THROUGH REJECTED BY AN IF CLAUSE' }),
+      wrap
+    ]);
+  }
+
+  /* ============================================================
+     HERO — the three questions that pick a container
+     ============================================================ */
+  function buildHero() {
+    var state = { change: 'yes', order: 'yes', lookup: 'position' };
+    var host = qs('#axes');
+    var verdict = el('div', { class: 'verdict' });
+    var defs = [
+      { key: 'change', q: 'Will the collection change after you build it?', opts: ['yes', 'no'] },
+      { key: 'order', q: 'Does the order you put things in matter?', opts: ['yes', 'no'] },
+      { key: 'lookup', q: 'How will you find one item again?', opts: ['position', 'by name', 'just membership'] }
+    ];
+    var left = el('div');
+    defs.forEach(function (d) {
+      var axis = el('div', { class: 'axis' });
+      axis.appendChild(el('div', { class: 'q', text: d.q }));
+      var tg = el('div', { class: 'toggle' });
+      d.opts.forEach(function (o) {
+        var b = el('button', { text: o.toUpperCase(), onclick: function () { state[d.key] = o; paint(); } });
+        tg.appendChild(b);
+      });
+      axis.appendChild(tg);
+      axis.dataset.key = d.key;
+      left.appendChild(axis);
+    });
+    host.appendChild(left);
+    host.appendChild(verdict);
+
+    function decide() {
+      if (state.lookup === 'by name') return ['dict', "{'jack': 4098, 'sape': 4139}", 'Keys are hashed, so a name goes straight to its value. Pairs stay in the order you inserted them.', 'shape'];
+      if (state.lookup === 'just membership') return ['set', "{'apple', 'pear', 'banana'}", 'Elements are placed by their own hash. That is why duplicates vanish and why you cannot ask for element 0.', 'shape'];
+      if (state.change === 'no') return ['tuple', "(12345, 54321, 'hello!')", 'A fixed record whose slots cannot be rebound. Usually heterogeneous — the position means something.', 'shape'];
+      if (state.order === 'no') return ['list', "['apple', 'pear', 'banana']", 'You said order does not matter but you still want positions — a list still works, though a set may be the honest choice.', 'place'];
+      return ['list', "['apple', 'pear', 'banana']", 'Mutable, ordered, indexed by position. The default container, and the one whose front is expensive to touch.', 'place'];
+    }
+    function paint() {
+      Array.prototype.forEach.call(left.children, function (axis) {
+        var k = axis.dataset.key;
+        Array.prototype.forEach.call(axis.querySelector('.toggle').children, function (b) {
+          b.classList.toggle('on', b.textContent.toLowerCase() === state[k]);
+        });
+      });
+      var d = decide();
+      verdict.innerHTML = '';
+      verdict.appendChild(el('div', { class: 'eyebrow', text: 'THE CONTAINER YOU DESCRIBED' }));
+      verdict.appendChild(el('div', { class: 'type', text: d[0] }));
+      verdict.appendChild(el('div', { class: 'lit', text: d[1] }));
+      verdict.appendChild(el('div', { class: 'why' }, [el('div', { class: 'gutter-note', text: d[2] })]));
+      verdict.appendChild(el('a', { href: '#' + d[3], class: 'gutter-note', style: 'display:inline-block;margin-top:12px;color:var(--mutate)', text: 'open the lab where this is taken apart →' }));
+    }
+    paint();
+  }
+
+  /* ============================================================
+     SYNTHESIS — six levels, machine-checked where checkable
+     ============================================================ */
+  var LEVELS = [
+    {
+      name: 'RECOGNISE', kind: 'mc',
+      prompt: 'A deduplication service must answer “have I seen this identifier before?” tens of thousands of times per second. Identifiers arrive in no meaningful order and are never looked up by position. Which container is the right answer, and why?',
+      opts: ['list — it keeps everything and you can scan it',
+        'set — membership is one hash, not a scan, and duplicates cannot accumulate',
+        'tuple — it cannot be modified, so it is safe',
+        'dict — every value would just be True'],
+      right: 1,
+      after: 'A dict would also work and would cost the same lookup — but you would be storing a value you never read. The set is the same machine with the payload removed.'
+    },
+    {
+      name: 'PREDICT', kind: 'exact',
+      prompt: 'Read this and type the exact output — three integers separated by single spaces. Nothing here is a trick; every rule needed is in labs 01 and 05.',
+      code: "a = [1, 2, 3]\nb = a\nb.append(4)\nc = a[:]\nc.append(5)\nprint(len(a), len(b), len(c))",
+      placeholder: 'e.g. 3 3 4',
+      after: 'b is a second name for one object, so it cannot have a different length. a[:] is a slice — a genuinely new list — so c diverges.'
+    },
+    {
+      name: 'DEBUG', kind: 'fix',
+      prompt: 'This is meant to print every name that appears more than once, sorted, with no repeats — <b>[\'ana\', \'ben\']</b>. It does not. Find the fault, fix it in the editor, and trace it until the output matches.',
+      code: "names = ['ana', 'ben', 'ana', 'cara', 'ben', 'ana']\nrepeats = []\nfor n in names:\n    if names.count(n) > 1:\n        names.remove(n)\n        repeats.append(n)\nprint(sorted(repeats))",
+      expect: "['ana', 'ben']",
+      after: 'The loop removes from the very list it is walking, so the cursor skips elements — and it appends a name once per surviving duplicate. Building a separate result from a set of the duplicates removes both faults at once.'
+    },
+    {
+      name: 'MODIFY', kind: 'comp',
+      prompt: 'Rewrite this so the loop is gone and a single comprehension does the work. The output must stay identical, and no <b>for</b> statement may remain.',
+      code: "words = ['fig', 'pear', 'banana', 'kiwi']\nlong_ones = []\nfor w in words:\n    if len(w) > 3:\n        long_ones.append(w.upper())\nprint(long_ones)",
+      expect: "['PEAR', 'BANANA', 'KIWI']",
+      after: 'The accumulator disappears because the comprehension owns it. The loop name disappears with the scope. What is left is a statement about the relationship between words and long_ones.'
+    },
+    {
+      name: 'EXPLAIN', kind: 'text',
+      prompt: 'Explain in your own words why <b>grid = [[0] * 3] * 3</b> then <b>grid[0][0] = 1</b> changes a value in every row. Then run it and check yourself.',
+      code: "grid = [[0] * 3] * 3\ngrid[0][0] = 1\nprint(grid)\nprint(grid[0] is grid[1])",
+      keys: ['same', 'reference', 'alias', 'one list', 'one object', 'points'],
+      model: 'The inner list is built once. Multiplying the outer list copies the reference three times, so all three rows are the same object. Editing through any row is visible through all of them — the same aliasing you saw in lab 01, one level deeper.'
+    },
+    {
+      name: 'DESIGN', kind: 'tests',
+      prompt: 'Write the body yourself. Given a list named <b>basket</b>, print each unique item in alphabetical order with the number of times it appears, one per line, as <b>item count</b>. It is checked against two hidden baskets.',
+      code: "# basket is already defined above your code\nfor item in sorted(set(basket)):\n    print(item, basket.count(item))",
+      tests: [
+        { prelude: "basket = ['pear', 'apple', 'pear', 'fig', 'apple', 'pear']\n", expect: 'apple 2\nfig 1\npear 3' },
+        { prelude: "basket = ['b', 'a', 'b']\n", expect: 'a 1\nb 2' }
+      ],
+      after: 'set() removes the duplicates, sorted() imposes the order the problem asked for, count() answers the question per item. Three tools from three different parts of this section, composed in one line.'
+    }
+  ];
+
+  function buildSynthesis() {
+    var host = qs('#task-host'), tabs = qs('#levels'), cur = 0;
+    LEVELS.forEach(function (L, i) {
+      tabs.appendChild(el('button', { text: (i + 1) + ' · ' + L.name, onclick: function () { cur = i; paint(); } }));
+    });
+    function paint() {
+      Array.prototype.forEach.call(tabs.children, function (b, i) {
+        b.classList.toggle('on', i === cur);
+        b.classList.toggle('cleared', !!Ledger.data.levels[i]);
+      });
+      var L = LEVELS[cur];
+      host.innerHTML = '';
+      var box = el('div', { class: 'task' });
+      box.appendChild(el('div', { class: 'eyebrow', text: 'LEVEL ' + (cur + 1) + ' — ' + L.name }));
+      box.appendChild(el('p', { class: 'prompt', html: L.prompt }));
+      var result = el('div', { class: 'result' });
+
+      function clear(msg) { Ledger.data.levels[cur] = 1; Ledger.save(); result.className = 'result ok'; result.innerHTML = msg + (L.after ? '<div class="gutter-note" style="margin-top:10px">' + L.after + '</div>' : ''); paint2(); }
+      function reject(msg) { result.className = 'result no'; result.innerHTML = msg; }
+      function paint2() { Array.prototype.forEach.call(tabs.children, function (b, i) { b.classList.toggle('cleared', !!Ledger.data.levels[i]); }); }
+
+      if (L.kind === 'mc') {
+        var opts = el('div', { class: 'opts' });
+        L.opts.forEach(function (o, i) {
+          opts.appendChild(el('button', { text: o, onclick: function () { i === L.right ? clear('Correct.') : reject('Not this one — think about what the container is asked to do on every single request.'); } }));
+        });
+        box.appendChild(opts);
+      } else if (L.kind === 'exact') {
+        box.appendChild(codeBlock(L.code));
+        var inp = el('input', { placeholder: L.placeholder, 'aria-label': 'your predicted output' });
+        box.appendChild(el('div', { class: 'answerbar' }, [inp, el('button', {
+          text: 'CHECK', onclick: function () {
+            var real = run(L.code).out.join('\n').trim();
+            if (inp.value.trim() === real) clear('Matches the real run exactly.');
+            else reject('The real run prints <b>' + esc(real) + '</b>. Trace it in lab 01 if that is a surprise.');
+          }
+        })]));
+      } else if (L.kind === 'fix' || L.kind === 'comp' || L.kind === 'tests') {
+        var ta = el('textarea', { spellcheck: 'false', 'aria-label': 'your program' });
+        ta.value = L.code; ta.style.minHeight = '150px'; ta.style.fontFamily = 'inherit';
+        box.appendChild(el('div', { class: 'answerbar' }, [ta]));
+        box.appendChild(el('div', { class: 'answerbar' }, [el('button', {
+          text: 'RUN & CHECK', onclick: function () {
+            var src = ta.value;
+            if (L.kind === 'tests') {
+              var failed = null;
+              L.tests.forEach(function (t) {
+                if (failed) return;
+                var r = run(t.prelude + src);
+                if (r.error) failed = 'Hidden basket ' + esc(t.prelude.trim()) + ' raised <b>' + r.error.type + ': ' + esc(r.error.msg) + '</b>';
+                else if (r.out.join('\n').trim() !== t.expect) failed = 'Hidden basket ' + esc(t.prelude.trim()) + ' expected<br><b>' + esc(t.expect).replace(/\n/g, '<br>') + '</b><br>but got<br><b>' + (esc(r.out.join('\n')) || '(nothing)').replace(/\n/g, '<br>') + '</b>';
+              });
+              failed ? reject(failed) : clear('Both hidden baskets pass.');
+              return;
+            }
+            var res = run(src);
+            if (res.error) { reject('Raised <b>' + res.error.type + ': ' + esc(res.error.msg) + '</b> — read the error taxonomy in the lab it came from.'); return; }
+            var got = res.out.join('\n').trim();
+            if (got !== L.expect) { reject('Prints <b>' + (esc(got) || '(nothing)') + '</b>, expected <b>' + esc(L.expect) + '</b>.'); return; }
+            if (L.kind === 'comp') {
+              var hasFor = /(^|\n)\s*for\s/.test(src), hasComp = /\[[^\]]*\bfor\b[^\]]*\]/.test(src);
+              if (hasFor) { reject('Output is right, but a <b>for</b> statement is still there. The comprehension should be the only loop.'); return; }
+              if (!hasComp) { reject('Output is right, but there is no comprehension. Rebuild the list in brackets.'); return; }
+            }
+            clear('Output matches.');
+          }
+        }), el('button', { text: 'RESET', style: 'background:transparent;color:var(--dim);border-color:var(--rule)', onclick: function () { ta.value = L.code; } })]));
+      } else if (L.kind === 'text') {
+        box.appendChild(codeBlock(L.code));
+        var t2 = el('textarea', { placeholder: 'Your explanation…', 'aria-label': 'your explanation' });
+        t2.style.minHeight = '90px';
+        box.appendChild(el('div', { class: 'answerbar' }, [t2]));
+        box.appendChild(el('div', { class: 'answerbar' }, [el('button', {
+          text: 'CHECK MYSELF', onclick: function () {
+            var real = run(L.code).out.join('\n');
+            var hit = L.keys.some(function (k) { return t2.value.toLowerCase().indexOf(k) >= 0; });
+            var msg = '<div>The program prints:<pre style="color:var(--out)">' + esc(real) + '</pre></div>' +
+              '<div class="gutter-note" style="margin-top:10px"><b>The account that holds up:</b> ' + L.model + '</div>';
+            if (hit) clear('<div>Your explanation names the mechanism.</div>' + msg);
+            else { reject('<div>This one is graded by you, not by me — but your answer does not yet mention the sharing of one object, which is the whole mechanism.</div>' + msg); }
+          }
+        })]));
+      }
+      box.appendChild(result);
+      host.appendChild(box);
+    }
+    paint();
+  }
+
+  function codeBlock(src) {
+    var c = el('div', { class: 'code', style: 'border:1px solid var(--rule);margin-top:14px;background:var(--panel2)' });
+    var nums = el('div', { class: 'nums' });
+    var pre = el('pre', {});
+    src.split('\n').forEach(function (l, i) { nums.appendChild(el('div', { text: i + 1 })); pre.appendChild(el('span', { class: 'ln', html: hl(l) })); });
+    c.appendChild(nums); c.appendChild(pre);
+    return c;
+  }
+
+  /* ---------- mental model map + final ledger ---------- */
+  function paintSynthesis() {
+    var host = qs('#final');
+    if (!host) return;
+    var runs = Ledger.count(Ledger.data.ran), preds = Ledger.count(Ledger.data.predicted),
+      ok = Ledger.correct(), levels = Ledger.count(Ledger.data.levels), miss = Ledger.data.wrong.length;
+    host.innerHTML = '';
+    var grid = el('div', { class: 'ledger-final' });
+    [[runs, 'EXPERIMENTS TRACED'], [preds, 'PREDICTIONS MADE'], [ok, 'RIGHT FIRST TRY'], [miss, 'MODELS CORRECTED'], [levels + '/6', 'LEVELS CLEARED']]
+      .forEach(function (p) { grid.appendChild(el('div', {}, [el('div', { class: 'n', text: p[0] }), el('div', { class: 'l', text: p[1] })])); });
+    host.appendChild(grid);
+
+    var mast = el('div', { class: 'mastery' });
+    LABS.forEach(function (l) {
+      var s = Ledger.labScore(l.id);
+      mast.appendChild(el('div', { class: 'row' }, [
+        el('span', { text: l.num + ' · ' + l.concept }),
+        el('div', { class: 'bar' }, [el('span', { style: 'width:' + s + '%' })]),
+        el('span', { text: s + '%' })
+      ]));
+    });
+    host.appendChild(mast);
+
+    if (Ledger.data.wrong.length) {
+      var w = el('div', { style: 'margin-top:22px' });
+      w.appendChild(el('div', { class: 'eyebrow', text: 'MODELS YOU HELD, AND REPLACED' }));
+      Ledger.data.wrong.slice(-6).forEach(function (m) { w.appendChild(el('p', { class: 'gutter-note', text: '— ' + m })); });
+      host.appendChild(w);
+    }
+    host.appendChild(mapSvg());
+  }
+
+  function mapSvg() {
+    var live = {};
+    LABS.forEach(function (l) { live[l.id] = Ledger.visited(l.id); });
+    var W = 900, H = 430;
+    var nodes = [
+      { x: 370, y: 22, w: 160, t: 'OBJECT + NAME', id: null },
+      { x: 120, y: 118, w: 190, t: 'MUTATION · IDENTITY', id: 'place' },
+      { x: 590, y: 118, w: 190, t: 'HASHING · KEYS', id: 'shape' },
+      { x: 120, y: 214, w: 190, t: 'COST OF AN END', id: 'discipline' },
+      { x: 355, y: 214, w: 190, t: 'BUILD vs MUTATE', id: 'comprehension' },
+      { x: 590, y: 214, w: 190, t: 'TRAVERSAL', id: 'streams' },
+      { x: 355, y: 310, w: 190, t: 'ORDER · SHORT CIRCUIT', id: 'truth' },
+      { x: 355, y: 392, w: 190, t: 'CHOOSING WELL', id: null }
+    ];
+    var edges = [[0, 1], [0, 2], [1, 3], [1, 4], [2, 4], [2, 5], [1, 5], [4, 6], [5, 6], [3, 6], [6, 7]];
+    var s = '<svg class="map" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="mental model map of section 5">';
+    s += '<text class="cap" x="20" y="24">SECTION 05 · WHAT CONNECTS TO WHAT</text>';
+    edges.forEach(function (e) {
+      var a = nodes[e[0]], b = nodes[e[1]];
+      var on = (!a.id || live[a.id]) && (!b.id || live[b.id]);
+      s += '<path class="edge' + (on ? ' live' : '') + '" d="M' + (a.x + a.w / 2) + ' ' + (a.y + 30) + ' C' + (a.x + a.w / 2) + ' ' + (a.y + 60) + ',' + (b.x + b.w / 2) + ' ' + (b.y - 30) + ',' + (b.x + b.w / 2) + ' ' + b.y + '" fill="none"/>';
+    });
+    nodes.forEach(function (n) {
+      var on = !n.id || live[n.id];
+      s += '<g class="node' + (on ? ' live' : '') + '"><rect x="' + n.x + '" y="' + n.y + '" width="' + n.w + '" height="30"/>' +
+        '<text x="' + (n.x + n.w / 2) + '" y="' + (n.y + 19) + '" text-anchor="middle">' + n.t + '</text></g>';
+    });
+    s += '</svg>';
+    var wrap = el('div', { html: s });
+    wrap.appendChild(el('p', { class: 'gutter-note', style: 'margin-top:10px', html: 'Nodes light up as you trace experiments in the lab that owns them. Every edge is a real dependency: hashing explains why keys must be immutable, immutability explains what a tuple protects, and the cost of an end explains why a queue is not a list.' }));
+    return wrap;
+  }
+
+  /* ============================================================
+     BOOT
+     ============================================================ */
+  Ledger.load();
+  buildHero();
+  var nav = qs('#nav');
+  LABS.forEach(function (cfg, i) {
+    nav.appendChild(el('a', { href: '#' + cfg.id, id: 'nav-' + cfg.id }, [el('i', { text: cfg.num }), el('span', { text: cfg.concept })]));
+  });
+  nav.appendChild(el('a', { href: '#synthesis', id: 'nav-synthesis' }, [el('i', { text: '07' }), el('span', { text: 'Synthesis' })]));
+  var labs = LABS.map(function (cfg, i) { return new Lab(cfg, i); });
+  window.activeLab = labs[0];
+  buildSynthesis();
+  Ledger.paint();
+
+  /* spine highlighting */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) {
+        Array.prototype.forEach.call(nav.children, function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + en.target.id); });
+        var lab = labs.filter(function (l) { return l.cfg.id === en.target.id; })[0];
+        if (lab) window.activeLab = lab;
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  document.querySelectorAll('section.lab, #synthesis').forEach(function (s) { io.observe(s); });
+
+  /* keyboard */
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'textarea' || tag === 'input') return;
+    var lab = window.activeLab;
+    if (!lab) return;
+    if (e.key === 'ArrowRight') { lab.pause(); lab.move(1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { lab.pause(); lab.move(-1); e.preventDefault(); }
+    else if (e.key === ' ' || e.key === 'Enter') { lab.playing ? lab.pause() : lab.play(); e.preventDefault(); }
+    else if (e.key === 'r' || e.key === 'R') { lab.pause(); lab.goto(0); }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,3243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Section 4 — Control Flow Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg: #0b0e14;
+    --bg-alt: #0e1219;
+    --panel: #12161f;
+    --panel-raised: #161b26;
+    --border: #1f2530;
+    --border-soft: #191e28;
+    --text: #c9d1d9;
+    --text-dim: #8b93a1;
+    --text-mute: #5b6472;
+    --blue: #4f9dff;
+    --blue-dim: #2a5486;
+    --yellow: #f2c94c;
+    --yellow-dim: #7a6526;
+    --green: #3ddc84;
+    --green-dim: #1e6b45;
+    --red: #ff5c5c;
+    --red-dim: #7a2e2e;
+    --purple: #b285f0;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --radius: 8px;
+    --sidebar-w: 268px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  ::selection{background:var(--blue-dim); color:#fff;}
+
+  code, pre, .mono{font-family:var(--mono);}
+
+  a{color:var(--blue);}
+
+  /* ---------- Scrollbar ---------- */
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border); border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text-mute);}
+
+  /* ---------- Layout ---------- */
+  .app{
+    min-height:100vh;
+    width:100%;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    position:fixed;
+    top:0;
+    left:0;
+    bottom:0;
+    width:var(--sidebar-w);
+    height:100vh;
+    overflow-y:auto;
+    background:var(--bg-alt);
+    border-right:1px solid var(--border);
+    padding:20px 14px 40px;
+    z-index:30;
+  }
+
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    padding:4px 8px 18px;
+    border-bottom:1px solid var(--border-soft);
+    margin-bottom:14px;
+  }
+  .brand .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-mute);
+    letter-spacing:0.08em;
+  }
+  .brand .num{
+    font-family:var(--mono);
+    font-weight:800;
+    font-size:20px;
+    color:var(--blue);
+  }
+  .brand .title{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:13px;
+    color:var(--text);
+  }
+
+  .nav-group{margin-bottom:4px;}
+  .nav-group-label{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-mute);
+    padding:14px 10px 6px;
+  }
+
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    font-family:var(--sans);
+    font-size:13.5px;
+    padding:8px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:background 0.15s, color 0.15s;
+    position:relative;
+  }
+  .nav-item:hover{background:var(--panel-raised); color:var(--text);}
+  .nav-item:focus-visible{outline:2px solid var(--blue); outline-offset:-1px;}
+  .nav-item.active{background:var(--panel-raised); color:var(--text); font-weight:600;}
+  .nav-item.active::before{
+    content:'';
+    position:absolute; left:-14px; top:0; bottom:0; width:3px;
+    background:var(--blue); border-radius:2px;
+  }
+  .nav-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--border); flex-shrink:0;
+    transition:background 0.2s;
+  }
+  .nav-dot.done{background:var(--green);}
+  .nav-dot.partial{background:var(--yellow);}
+
+  .sidebar-footer{
+    margin-top:20px;
+    padding-top:16px;
+    border-top:1px solid var(--border-soft);
+  }
+  .mastery-mini{
+    padding:10px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+  }
+  .mastery-mini-label{
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--text-mute);
+    letter-spacing:0.06em;
+    margin-bottom:6px;
+  }
+  .mastery-mini-bar{
+    height:6px;
+    background:var(--border-soft);
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .mastery-mini-fill{
+    height:100%;
+    background:linear-gradient(90deg,var(--blue),var(--green));
+    width:0%;
+    transition:width 0.4s ease;
+  }
+  .mastery-mini-pct{
+    font-family:var(--mono);
+    font-size:16px;
+    font-weight:700;
+    color:var(--text);
+    margin-top:6px;
+  }
+
+  /* ---------- Main content ---------- */
+  .main{
+    min-width:0;
+    margin-left:var(--sidebar-w);
+    padding:0 0 100px;
+    width:calc(100% - var(--sidebar-w));
+  }
+
+  .topbar{
+    position:sticky;
+    top:0;
+    z-index:20;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:12px 32px;
+    background:rgba(11,14,20,0.88);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    min-width:0;
+  }
+  .topbar-title{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-dim);
+    min-width:0;
+    flex:1 1 auto;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .topbar-title b{color:var(--text);}
+  .mode-toggle{
+    display:flex;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:7px;
+    padding:2px;
+    gap:2px;
+    flex-shrink:0;
+  }
+  .mode-btn{
+    font-family:var(--mono);
+    font-size:11.5px;
+    padding:6px 12px;
+    border-radius:5px;
+    border:none;
+    background:none;
+    color:var(--text-mute);
+    cursor:pointer;
+    transition:all 0.15s;
+  }
+  .mode-btn.active{background:var(--blue-dim); color:#fff;}
+  .mode-btn:hover:not(.active){color:var(--text);}
+  .mode-btn:focus-visible{outline:2px solid var(--blue); outline-offset:1px;}
+
+  .content-wrap{
+    max-width:880px;
+    margin:0 auto;
+    padding:0 32px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    padding:56px 32px 40px;
+    max-width:880px;
+    margin:0 auto;
+  }
+  .hero-eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--blue);
+    letter-spacing:0.1em;
+    margin-bottom:14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .hero-eyebrow::before{content:'▸'; color:var(--text-mute);}
+  .hero h1{
+    font-family:var(--mono);
+    font-size:clamp(28px,4.4vw,42px);
+    font-weight:800;
+    margin:0 0 14px;
+    line-height:1.15;
+    letter-spacing:-0.01em;
+  }
+  .hero h1 .accent{color:var(--blue);}
+  .hero p.lede{
+    font-size:16px;
+    color:var(--text-dim);
+    max-width:620px;
+    margin:0 0 28px;
+  }
+  .hero-stats{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .hero-stat{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text-dim);
+    background:var(--panel);
+    border:1px solid var(--border);
+    padding:7px 12px;
+    border-radius:7px;
+  }
+  .hero-stat b{color:var(--yellow); font-weight:700;}
+
+  /* ---------- Sections ---------- */
+  .concept{
+    scroll-margin-top:70px;
+    padding:44px 32px 8px;
+    max-width:880px;
+    margin:0 auto;
+    border-top:1px solid var(--border-soft);
+  }
+  .concept-head{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    margin-bottom:8px;
+    flex-wrap:wrap;
+  }
+  .concept-id{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-mute);
+    font-weight:700;
+  }
+  .concept h2{
+    font-family:var(--mono);
+    font-size:24px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .concept-sub{
+    font-size:14.5px;
+    color:var(--text-dim);
+    margin:6px 0 22px;
+    max-width:640px;
+  }
+
+  .skip-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:24px;
+    flex-wrap:wrap;
+  }
+  .skip-btn{
+    font-family:var(--mono);
+    font-size:11.5px;
+    padding:7px 12px;
+    border-radius:6px;
+    border:1px dashed var(--border);
+    background:none;
+    color:var(--text-mute);
+    cursor:pointer;
+    transition:all 0.15s;
+  }
+  .skip-btn:hover{border-color:var(--blue); color:var(--blue);}
+  .skip-btn:focus-visible{outline:2px solid var(--blue); outline-offset:1px;}
+
+  /* ---------- Prose blocks ---------- */
+  .block{margin-bottom:22px;}
+  .simple-model{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-left:3px solid var(--blue);
+    border-radius:0 8px 8px 0;
+    padding:14px 18px;
+    font-size:14.5px;
+    color:var(--text);
+    margin-bottom:20px;
+  }
+  .simple-model .label{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--blue);
+    letter-spacing:0.08em;
+    display:block;
+    margin-bottom:5px;
+  }
+  .tech-note{
+    font-size:13.5px;
+    color:var(--text-dim);
+    margin-top:8px;
+  }
+  .tech-note .label{color:var(--purple); font-family:var(--mono); font-size:11px; font-weight:700;}
+
+  p{font-size:15px; color:var(--text); margin:0 0 14px;}
+  .prose-dim{color:var(--text-dim); font-size:14px;}
+
+  /* ---------- Code blocks ---------- */
+  .code-block{
+    background:#0d1117;
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+    margin:16px 0;
+  }
+  .code-block-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 14px;
+    border-bottom:1px solid var(--border-soft);
+    background:var(--panel);
+  }
+  .code-block-dots{display:flex; gap:6px;}
+  .code-block-dots span{width:9px; height:9px; border-radius:50%; background:var(--border);}
+  .code-block-label{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-mute);
+    letter-spacing:0.05em;
+  }
+  pre.code{
+    margin:0;
+    padding:16px 18px;
+    font-family:var(--mono);
+    font-size:13.5px;
+    line-height:1.7;
+    overflow-x:auto;
+    color:#dbe4f0;
+    -webkit-overflow-scrolling:touch;
+  }
+  pre.code .c-kw{color:#ff7ab2; font-weight:600;}
+  pre.code .c-fn{color:#82d4ff;}
+  pre.code .c-str{color:#a6e3a1;}
+  pre.code .c-num{color:#f2c94c;}
+  pre.code .c-com{color:#5b6472; font-style:italic;}
+  pre.code .c-bui{color:#c99cff;}
+
+  /* ---------- Output console ---------- */
+  .console{
+    background:#08090d;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:14px 16px;
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--green);
+    min-height:44px;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .console .prompt{color:var(--text-mute);}
+  .console .placeholder{color:var(--text-mute); font-style:italic;}
+  .console .err{color:var(--red);}
+
+  /* ---------- Execution Visualizer (signature component) ---------- */
+  .exec-viz{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    margin:18px 0 24px;
+  }
+  .exec-viz-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 14px;
+    background:var(--panel-raised);
+    border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .exec-viz-title{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:0.05em;
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  .exec-viz-title .dot{width:6px;height:6px;border-radius:50%;background:var(--green); box-shadow:0 0 6px var(--green);}
+  .exec-controls{display:flex; gap:6px;}
+  .exec-btn{
+    font-family:var(--mono);
+    font-size:11.5px;
+    font-weight:600;
+    padding:6px 11px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--text);
+    cursor:pointer;
+    transition:all 0.15s;
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .exec-btn:hover{border-color:var(--blue); color:var(--blue);}
+  .exec-btn:focus-visible{outline:2px solid var(--blue); outline-offset:1px;}
+  .exec-btn:disabled{opacity:0.35; cursor:not-allowed;}
+  .exec-btn.primary{background:var(--blue-dim); border-color:var(--blue-dim); color:#fff;}
+  .exec-btn.primary:hover{background:var(--blue); border-color:var(--blue); color:#fff;}
+
+  .exec-body{
+    display:grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap:0;
+  }
+  @media (max-width:640px){
+    .exec-body{grid-template-columns:1fr;}
+  }
+  .exec-code{
+    padding:14px 0;
+    border-right:1px solid var(--border);
+  }
+  @media (max-width:640px){ .exec-code{border-right:none; border-bottom:1px solid var(--border);} }
+  .exec-code pre{
+    margin:0;
+    font-family:var(--mono);
+    font-size:13px;
+    line-height:1.85;
+  }
+  .exec-line{
+    display:block;
+    padding:1px 18px;
+    white-space:pre;
+    color:#c9d1d9;
+    border-left:3px solid transparent;
+    transition:background 0.2s, border-color 0.2s;
+  }
+  .exec-line.current{
+    background:rgba(79,157,255,0.12);
+    border-left:3px solid var(--blue);
+  }
+  .exec-line.executed{color:#6b7280;}
+  .exec-line .exec-arrow{color:var(--blue); font-weight:700; margin-right:4px;}
+
+  .exec-side{padding:14px 16px; display:flex; flex-direction:column; gap:14px;}
+  .exec-panel-label{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.08em;
+    color:var(--text-mute);
+    margin-bottom:7px;
+  }
+  .var-table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px;}
+  .var-table td{padding:5px 8px; border-bottom:1px solid var(--border-soft);}
+  .var-table td.vname{color:var(--yellow);}
+  .var-table td.vval{color:var(--green); text-align:right;}
+  .var-table tr.changed td{animation:flashRow 0.6s ease;}
+  @keyframes flashRow{ from{background:rgba(242,201,76,0.18);} to{background:transparent;} }
+  .var-empty{color:var(--text-mute); font-size:12px; font-style:italic;}
+
+  .exec-out{
+    background:#08090d;
+    border:1px solid var(--border-soft);
+    border-radius:6px;
+    padding:10px 12px;
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--green);
+    min-height:36px;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .exec-explain{
+    font-size:12.5px;
+    color:var(--text-dim);
+    background:var(--panel-raised);
+    border-radius:6px;
+    padding:10px 12px;
+    border-left:2px solid var(--blue);
+    min-height:20px;
+  }
+  .exec-progress{
+    display:flex;
+    gap:3px;
+    padding:0 16px 14px;
+  }
+  .exec-progress span{
+    height:3px;
+    flex:1;
+    background:var(--border);
+    border-radius:2px;
+  }
+  .exec-progress span.done{background:var(--blue);}
+
+  /* ---------- Diagrams (flow / decision / state / timeline) ---------- */
+  .diagram{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:22px;
+    margin:18px 0 24px;
+  }
+  .diagram-label{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.08em;
+    color:var(--text-mute);
+    margin-bottom:14px;
+  }
+
+  /* ---------- Trap box ---------- */
+  .trap{
+    background:linear-gradient(180deg, rgba(255,92,92,0.06), transparent);
+    border:1px solid var(--red-dim);
+    border-radius:10px;
+    padding:18px 20px;
+    margin:20px 0;
+  }
+  .trap-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:700;
+    color:var(--red);
+    letter-spacing:0.04em;
+    margin-bottom:12px;
+  }
+  .trap-flow{display:flex; flex-direction:column; gap:8px;}
+  .trap-step{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13.5px;
+  }
+  .trap-step .k{
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--text-mute);
+    min-width:78px;
+    flex-shrink:0;
+  }
+  .trap-step .v{color:var(--text);}
+  .trap-step.think .v{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--red-dim);}
+  .trap-step.actual .v{color:var(--green); font-weight:600;}
+  .trap-arrow-sep{color:var(--text-mute); font-family:var(--mono); font-size:13px; padding-left:78px;}
+
+  /* ---------- Prediction card ---------- */
+  .predict{
+    background:var(--panel);
+    border:1px solid var(--yellow-dim);
+    border-radius:10px;
+    padding:20px 22px;
+    margin:20px 0;
+  }
+  .predict-head{
+    font-family:var(--mono);
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--yellow);
+    letter-spacing:0.06em;
+    margin-bottom:14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .predict-q{font-size:14.5px; color:var(--text); margin-bottom:14px;}
+  .predict-opts{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .predict-opt{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    text-align:left;
+    padding:10px 14px;
+    border-radius:7px;
+    border:1px solid var(--border);
+    background:var(--bg-alt);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:13px;
+    cursor:pointer;
+    transition:all 0.15s;
+  }
+  .predict-opt:hover{border-color:var(--yellow); background:var(--panel-raised);}
+  .predict-opt:focus-visible{outline:2px solid var(--yellow); outline-offset:1px;}
+  .predict-opt .letter{
+    width:20px; height:20px; border-radius:5px;
+    background:var(--panel-raised); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; flex-shrink:0;
+  }
+  .predict-opt.correct{border-color:var(--green); background:rgba(61,220,132,0.08);}
+  .predict-opt.correct .letter{background:var(--green-dim); border-color:var(--green); color:#fff;}
+  .predict-opt.incorrect{border-color:var(--red); background:rgba(255,92,92,0.08);}
+  .predict-opt.incorrect .letter{background:var(--red-dim); border-color:var(--red); color:#fff;}
+  .predict-opt:disabled{cursor:default;}
+  .predict-opt:disabled:hover{background:var(--bg-alt);}
+  .predict-opt.correct:disabled:hover{background:rgba(61,220,132,0.08);}
+  .predict-opt.incorrect:disabled:hover{background:rgba(255,92,92,0.08);}
+
+  .predict-result{
+    display:none;
+    padding:12px 14px;
+    border-radius:7px;
+    font-size:13.5px;
+    margin-top:4px;
+  }
+  .predict-result.show{display:block;}
+  .predict-result.correct{background:rgba(61,220,132,0.1); border:1px solid var(--green-dim); color:var(--text);}
+  .predict-result.incorrect{background:rgba(255,92,92,0.1); border:1px solid var(--red-dim); color:var(--text);}
+  .predict-result .verdict{font-family:var(--mono); font-weight:700; margin-bottom:5px; display:block;}
+  .predict-result.correct .verdict{color:var(--green);}
+  .predict-result.incorrect .verdict{color:var(--red);}
+  .predict-reset{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-mute);
+    background:none;
+    border:1px dashed var(--border);
+    border-radius:6px;
+    padding:5px 10px;
+    cursor:pointer;
+    margin-top:10px;
+  }
+  .predict-reset:hover{color:var(--text);}
+
+  /* ---------- Callout / info ---------- */
+  .callout{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-left:3px solid var(--purple);
+    border-radius:0 8px 8px 0;
+    padding:14px 18px;
+    font-size:14px;
+    color:var(--text-dim);
+    margin:18px 0;
+  }
+  .callout .label{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--purple);
+    letter-spacing:0.08em;
+    display:block;
+    margin-bottom:5px;
+  }
+
+  /* ---------- Interactive widgets (sliders/toggles) ---------- */
+  .widget{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 20px;
+    margin:18px 0 24px;
+  }
+  .widget-label{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-mute);
+    letter-spacing:0.08em;
+    margin-bottom:12px;
+  }
+  .slider-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:6px;
+  }
+  input[type=range]{
+    flex:1;
+    accent-color:var(--blue);
+    height:4px;
+  }
+  input[type=range]:focus-visible{outline:2px solid var(--blue); outline-offset:3px;}
+  .slider-val{
+    font-family:var(--mono);
+    font-size:15px;
+    font-weight:700;
+    color:var(--blue);
+    min-width:52px;
+    text-align:right;
+  }
+
+  .toggle-row{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .toggle{
+    position:relative;
+    width:40px; height:22px;
+    background:var(--border);
+    border-radius:11px;
+    border:none;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background 0.2s;
+  }
+  .toggle.on{background:var(--blue-dim);}
+  .toggle::after{
+    content:'';
+    position:absolute; top:2px; left:2px;
+    width:18px; height:18px; border-radius:50%;
+    background:#fff;
+    transition:left 0.2s;
+  }
+  .toggle.on::after{left:20px;}
+  .toggle:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+  .toggle-text{font-size:13.5px; color:var(--text);}
+
+  /* ---------- Before/after comparison ---------- */
+  .compare{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin:16px 0;
+  }
+  @media (max-width:560px){ .compare{grid-template-columns:1fr;} }
+  .compare-col{
+    background:var(--bg-alt);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:14px;
+  }
+  .compare-col.before{border-color:var(--red-dim);}
+  .compare-col.after{border-color:var(--green-dim);}
+  .compare-col .cl-label{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.08em;
+    margin-bottom:8px; display:block;
+  }
+  .compare-col.before .cl-label{color:var(--red);}
+  .compare-col.after .cl-label{color:var(--green);}
+
+  /* ---------- Quiz / interview cards ---------- */
+  .iv-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px 22px;
+    margin:16px 0;
+  }
+  .iv-level{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--mono);
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    padding:4px 10px;
+    border-radius:12px;
+    margin-bottom:14px;
+  }
+  .iv-level.l1{background:rgba(79,157,255,0.12); color:var(--blue);}
+  .iv-level.l2{background:rgba(242,201,76,0.12); color:var(--yellow);}
+  .iv-level.l3{background:rgba(178,133,240,0.12); color:var(--purple);}
+  .iv-level.l4{background:rgba(255,92,92,0.12); color:var(--red);}
+  .iv-level.l5{background:rgba(61,220,132,0.12); color:var(--green);}
+  .iv-q{font-size:14.5px; color:var(--text); margin-bottom:14px; font-weight:500;}
+  .iv-reveal-btn{
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:6px;
+    border:1px solid var(--blue-dim);
+    background:none;
+    color:var(--blue);
+    cursor:pointer;
+    transition:all 0.15s;
+  }
+  .iv-reveal-btn:hover{background:var(--blue-dim); color:#fff;}
+  .iv-answer{
+    display:none;
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--border-soft);
+    font-size:13.5px;
+    color:var(--text-dim);
+  }
+  .iv-answer.show{display:block;}
+  .iv-answer .a-label{font-family:var(--mono); font-size:10.5px; color:var(--green); letter-spacing:0.06em; display:block; margin-bottom:8px;}
+  .iv-self{
+    display:none;
+    gap:8px;
+    margin-top:14px;
+  }
+  .iv-self.show{display:flex;}
+  .iv-self button{
+    font-family:var(--mono); font-size:11.5px; padding:6px 12px;
+    border-radius:6px; border:1px solid var(--border); background:var(--bg-alt);
+    color:var(--text-dim); cursor:pointer;
+  }
+  .iv-self button:hover{color:var(--text);}
+  .iv-self button.got-it:hover{border-color:var(--green); color:var(--green);}
+  .iv-self button.missed-it:hover{border-color:var(--red); color:var(--red);}
+
+  /* ---------- Section divider label ---------- */
+  .section-marker{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    max-width:880px;
+    margin:64px auto 0;
+    padding:0 32px;
+  }
+  .section-marker .line{flex:1; height:1px; background:var(--border);}
+  .section-marker .txt{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-mute);
+    letter-spacing:0.1em;
+    white-space:nowrap;
+  }
+
+  /* ---------- Fast revision table ---------- */
+  .revision-table{width:100%; border-collapse:collapse; margin:14px 0;}
+  .revision-table th{
+    text-align:left;
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-mute);
+    letter-spacing:0.06em;
+    padding:8px 10px;
+    border-bottom:1px solid var(--border);
+  }
+  .revision-table td{
+    padding:10px 10px;
+    border-bottom:1px solid var(--border-soft);
+    font-size:13px;
+    vertical-align:top;
+  }
+  .revision-table td.kw{font-family:var(--mono); color:var(--yellow); white-space:nowrap;}
+  .revision-table td.trap-c{color:var(--red-dim);}
+  .revision-table tr:hover{background:var(--panel);}
+
+  /* ---------- Footer / mastery dashboard ---------- */
+  .mastery-section{
+    max-width:880px;
+    margin:0 auto;
+    padding:44px 32px 80px;
+  }
+  .mastery-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin:24px 0;
+  }
+  @media (max-width:560px){ .mastery-grid{grid-template-columns:1fr;} }
+  .mastery-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 20px;
+  }
+  .mastery-card .m-label{
+    font-family:var(--mono); font-size:11px; color:var(--text-dim);
+    display:flex; justify-content:space-between; margin-bottom:10px;
+  }
+  .mastery-card .m-label b{color:var(--text); font-size:15px;}
+  .mastery-bar{height:8px; background:var(--border-soft); border-radius:4px; overflow:hidden;}
+  .mastery-bar-fill{height:100%; border-radius:4px; width:0%; transition:width 0.5s ease;}
+  .mastery-overall{
+    text-align:center;
+    padding:28px;
+    background:linear-gradient(180deg, var(--panel), var(--panel-raised));
+    border:1px solid var(--border);
+    border-radius:12px;
+    margin-top:16px;
+  }
+  .mastery-overall .pct{
+    font-family:var(--mono);
+    font-size:52px;
+    font-weight:800;
+    background:linear-gradient(90deg,var(--blue),var(--green));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .mastery-overall .lbl{font-family:var(--mono); font-size:11px; color:var(--text-mute); letter-spacing:0.1em; margin-top:6px;}
+  .stat-row{display:flex; gap:20px; justify-content:center; margin-top:18px; flex-wrap:wrap;}
+  .stat-chip{font-family:var(--mono); font-size:12px; color:var(--text-dim);}
+  .stat-chip b{color:var(--text); font-size:15px; display:block;}
+
+  /* ---------- Misc utility ---------- */
+  .flex-between{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  ul.clean{margin:0 0 14px; padding-left:20px;}
+  ul.clean li{margin-bottom:6px; font-size:14.5px; color:var(--text);}
+  .kbd{
+    font-family:var(--mono); font-size:11.5px;
+    background:var(--panel-raised); border:1px solid var(--border);
+    border-radius:4px; padding:1px 6px; color:var(--yellow);
+  }
+
+  /* ---------- Mobile nav toggle ---------- */
+  .mobile-nav-btn{
+    display:none;
+    font-family:var(--mono);
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    padding:7px 10px;
+    font-size:12px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+
+  @media (max-width:880px){
+    .app{width:100%;}
+    .main{margin-left:0; width:100%;}
+    .sidebar{
+      width:82%;
+      max-width:300px;
+      z-index:50;
+      transform:translateX(-100%);
+      transition:transform 0.25s ease;
+      box-shadow:20px 0 40px rgba(0,0,0,0.4);
+    }
+    .sidebar.open{transform:translateX(0);}
+    .mobile-nav-btn{display:inline-flex; align-items:center; gap:6px;}
+    .sidebar-overlay{
+      display:none;
+      position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:40;
+    }
+    .sidebar-overlay.show{display:block;}
+    .hero{padding:40px 20px 30px;}
+    .concept{padding:36px 20px 8px;}
+    .topbar{padding:12px 16px;}
+    .mastery-section{padding:36px 20px 60px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar-overlay" id="sidebarOverlay" style="display:none;"></div>
+  <nav class="sidebar" id="sidebar" aria-label="Section navigation">
+    <div class="brand">
+      <span class="num">§4</span>
+      <div>
+        <div class="title">Control Flow</div>
+        <div class="tag">interactive simulator</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Branching</div>
+      <button class="nav-item" data-target="c-if"><span class="nav-dot" data-dot="c-if"></span> if / elif / else</button>
+      <button class="nav-item" data-target="c-match"><span class="nav-dot" data-dot="c-match"></span> match statement</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Loops</div>
+      <button class="nav-item" data-target="c-for"><span class="nav-dot" data-dot="c-for"></span> for statement</button>
+      <button class="nav-item" data-target="c-range"><span class="nav-dot" data-dot="c-range"></span> range()</button>
+      <button class="nav-item" data-target="c-breakcontinue"><span class="nav-dot" data-dot="c-breakcontinue"></span> break / continue</button>
+      <button class="nav-item" data-target="c-else"><span class="nav-dot" data-dot="c-else"></span> loop else clause</button>
+      <button class="nav-item" data-target="c-pass"><span class="nav-dot" data-dot="c-pass"></span> pass statement</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Functions</div>
+      <button class="nav-item" data-target="c-deffunc"><span class="nav-dot" data-dot="c-deffunc"></span> defining functions</button>
+      <button class="nav-item" data-target="c-defaults"><span class="nav-dot" data-dot="c-defaults"></span> default arguments</button>
+      <button class="nav-item" data-target="c-kwargs"><span class="nav-dot" data-dot="c-kwargs"></span> keyword arguments</button>
+      <button class="nav-item" data-target="c-special"><span class="nav-dot" data-dot="c-special"></span> special parameters</button>
+      <button class="nav-item" data-target="c-arbitrary"><span class="nav-dot" data-dot="c-arbitrary"></span> *args / **kwargs</button>
+      <button class="nav-item" data-target="c-unpack"><span class="nav-dot" data-dot="c-unpack"></span> unpacking args</button>
+      <button class="nav-item" data-target="c-lambda"><span class="nav-dot" data-dot="c-lambda"></span> lambda expressions</button>
+      <button class="nav-item" data-target="c-docstyle"><span class="nav-dot" data-dot="c-docstyle"></span> docstrings & style</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Wrap up</div>
+      <button class="nav-item" data-target="c-fastrevision"><span class="nav-dot" data-dot="c-fastrevision"></span> 5-min fast revision</button>
+      <button class="nav-item" data-target="c-interview"><span class="nav-dot" data-dot="c-interview"></span> interview checkpoint</button>
+      <button class="nav-item" data-target="c-mastery"><span class="nav-dot" data-dot="c-mastery"></span> mastery score</button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="mastery-mini">
+        <div class="mastery-mini-label">SECTION MASTERY</div>
+        <div class="mastery-mini-bar"><div class="mastery-mini-fill" id="miniMasteryFill"></div></div>
+        <div class="mastery-mini-pct" id="miniMasteryPct">0%</div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main" id="mainContent">
+    <div class="topbar">
+      <button class="mobile-nav-btn" id="mobileNavBtn">☰ Menu</button>
+      <div class="topbar-title">Now viewing: <b id="topbarCurrent">Introduction</b></div>
+      <div class="mode-toggle" role="group" aria-label="Learning mode">
+        <button class="mode-btn active" data-mode="learn">Learn</button>
+        <button class="mode-btn" data-mode="revise">Revise</button>
+      </div>
+    </div>
+
+    <header class="hero">
+      <div class="hero-eyebrow">PYTHON TUTORIAL · CHAPTER 4</div>
+      <h1>More <span class="accent">Control&nbsp;Flow</span> Tools</h1>
+      <p class="lede">
+        Not a textbook. A simulator. Step through real Python execution line by line, predict outputs before you see them,
+        get caught by the same traps beginners always fall into — and walk out able to defend every answer in an interview.
+      </p>
+      <div class="hero-stats">
+        <div class="hero-stat"><b>16</b> concepts</div>
+        <div class="hero-stat"><b id="heroPredictCount">13</b> prediction challenges</div>
+        <div class="hero-stat"><b id="heroTrapCount">8</b> common traps</div>
+        <div class="hero-stat"><b>5</b> interview levels</div>
+        <div class="hero-stat">~<b>25</b> min learn · ~<b>5</b> min revise</div>
+      </div>
+    </header>
+
+    <!-- ============================================================
+         CONCEPT: if / elif / else
+    ============================================================ -->
+    <section class="concept" id="c-if">
+      <div class="concept-head">
+        <span class="concept-id">4.1</span>
+        <h2>if Statements</h2>
+      </div>
+      <p class="concept-sub">Python's branching tool. Zero or more <code>elif</code>, one optional <code>else</code> — and once a branch runs, the rest are skipped.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('if-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Python checks conditions top to bottom, like a bouncer checking a line of doors. The <em>first</em> door that says "yes" is the one it walks through — every door after that is ignored, even if it would also say "yes."
+        <div class="tech-note"><span class="label">TECHNICAL</span> An <code>if … elif … elif … else</code> chain is Python's substitute for a switch/case statement — but unlike some switch statements, there is no fallthrough. Exactly one branch (or none) executes.</div>
+      </div>
+
+      <div class="exec-viz" data-viz="if-demo">
+        <div class="exec-viz-head">
+          <span class="exec-viz-title"><span class="dot"></span> EXECUTION VISUALIZER</span>
+          <div class="exec-controls">
+            <button class="exec-btn primary" data-action="run">▶ Run</button>
+            <button class="exec-btn" data-action="step">Step →</button>
+            <button class="exec-btn" data-action="reset">↺ Reset</button>
+          </div>
+        </div>
+        <div class="exec-progress"></div>
+        <div class="exec-body">
+          <div class="exec-code">
+            <pre><span class="exec-line" data-line="1">x = 42</span><span class="exec-line" data-line="2">if x &lt; 0:</span><span class="exec-line" data-line="3">    x = 0</span><span class="exec-line" data-line="4">    print('Negative changed to zero')</span><span class="exec-line" data-line="5">elif x == 0:</span><span class="exec-line" data-line="6">    print('Zero')</span><span class="exec-line" data-line="7">elif x == 1:</span><span class="exec-line" data-line="8">    print('Single')</span><span class="exec-line" data-line="9">else:</span><span class="exec-line" data-line="10">    print('More')</span></pre>
+          </div>
+          <div class="exec-side">
+            <div>
+              <div class="exec-panel-label">VARIABLES</div>
+              <table class="var-table"><tbody></tbody></table>
+            </div>
+            <div>
+              <div class="exec-panel-label">OUTPUT</div>
+              <div class="exec-out"></div>
+            </div>
+            <div>
+              <div class="exec-panel-label">WHAT'S HAPPENING</div>
+              <div class="exec-explain"></div>
+            </div>
+          </div>
+        </div>
+        <script type="application/json">
+        {
+          "steps": [
+            {"line": 1, "vars": {"x": 42}, "changedVars": ["x"], "explain": "x is assigned 42."},
+            {"line": 2, "vars": {}, "explain": "Check: is x < 0? 42 < 0 is False. Python skips the if-block and checks the next condition."},
+            {"line": 5, "vars": {}, "explain": "Check: is x == 0? 42 == 0 is False. Skip again."},
+            {"line": 7, "vars": {}, "explain": "Check: is x == 1? 42 == 1 is False. Skip again."},
+            {"line": 9, "vars": {}, "explain": "No condition matched — Python falls through to else, unconditionally."},
+            {"line": 10, "vars": {}, "output": "More", "explain": "print('More') runs. This is the only branch that executes — the whole chain is now done."}
+          ]
+        }
+        </script>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"Each elif is checked independently, so if x==0 is somehow also true later, that branch runs too."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">Stops at the FIRST True condition. Everything after — even a technically-true elif — is never even evaluated.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">if/elif/elif/else is one single decision, not several independent ifs. Order therefore matters — put the most specific condition first.</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="if-predict" data-predict-id="if-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">score = 75
+if score &gt;= 90:
+    print("A")
+elif score &gt;= 70:
+    print("B")
+elif score &gt;= 60:
+    print("C")
+else:
+    print("F")</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> A</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> B</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> C and F both print</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> Nothing — no condition matches exactly</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          75 ≥ 90 is False, so Python checks the next one: 75 ≥ 70 is True → prints "B" and stops. It never even looks at the ≥60 check, even though 75 ≥ 60 is also true.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+
+      <div class="callout">
+        <span class="label">ALSO IN THE SOURCE</span>
+        If you're comparing one value against several literal constants (rather than ranges like <code>&gt;= 70</code>), the <code>match</code> statement is often a cleaner fit than a long elif chain — covered next.
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: match statement
+    ============================================================ -->
+    <section class="concept" id="c-match">
+      <div class="concept-head">
+        <span class="concept-id">4.7</span>
+        <h2>match Statements</h2>
+      </div>
+      <p class="concept-sub">Moved up next to <code>if</code> because it solves the same problem — "compare one value against several possibilities" — just with more power: it can also unpack and bind.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('match-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Think of <code>match</code> as an evolved elif-chain that can also say "and while you're at it, pull these pieces out into variables." Python compares the subject to each <code>case</code> pattern top to bottom, and runs the <em>first</em> one that fits — exactly like if/elif.
+        <div class="tech-note"><span class="label">TECHNICAL</span> The wildcard <code>case _:</code> never fails to match — it's the "else" of a match statement. If no case matches and there's no <code>_</code>, nothing executes.</div>
+      </div>
+
+      <div class="block">
+        <p><strong>Level 1 — literal matching</strong> (the switch-statement-like form):</p>
+        <div class="code-block">
+          <pre class="code">def http_error(status):
+    match status:
+        case 400:
+            return "Bad request"
+        case 404:
+            return "Not found"
+        case 401 | 403 | 404:   # "|" means OR
+            return "Not allowed"
+        case _:
+            return "Something's wrong with the internet"</pre>
+        </div>
+      </div>
+
+      <div class="block">
+        <p><strong>Level 2 — patterns that bind variables.</strong> This is what makes match different from a plain switch: a bare name in a pattern <em>captures</em> whatever value sits in that position.</p>
+        <div class="code-block">
+          <pre class="code"># point is an (x, y) tuple
+match point:
+    case (0, 0):
+        print("Origin")
+    case (0, y):
+        print(f"Y={y}")      # y is BOUND from point
+    case (x, 0):
+        print(f"X={x}")
+    case (x, y):
+        print(f"X={x}, Y={y}")
+    case _:
+        raise ValueError("Not a point")</pre>
+        </div>
+        <p class="prose-dim">Read a pattern the way you'd read the left side of an assignment: <code>(0, y)</code> means "first slot must literally be 0; whatever is in the second slot, call it <code>y</code>." Only bare names like <code>y</code> get assigned — dotted names, keyword names, and class names in a pattern are never assignment targets, they're comparisons.</p>
+      </div>
+
+      <div class="diagram">
+        <div class="diagram-label">DECISION VISUALIZER — how point=(0, 5) resolves</div>
+        <svg viewBox="0 0 700 220" width="100%" height="220" role="img" aria-label="Decision tree showing point (0,5) tested against four case patterns, matching case (0, y)">
+          <style>
+            .dnode{font-family:'JetBrains Mono',monospace; font-size:12px;}
+            .dbox{fill:#161b26; stroke:#1f2530; stroke-width:1;}
+            .dbox.match{fill:rgba(61,220,132,0.12); stroke:#3ddc84;}
+            .dtext{fill:#c9d1d9;}
+            .dtext.match{fill:#3ddc84; font-weight:700;}
+            .dtext.skip{fill:#5b6472;}
+            .darrow{stroke:#1f2530; stroke-width:1.5; fill:none;}
+          </style>
+          <rect x="290" y="8" width="120" height="30" rx="6" class="dbox"/>
+          <text x="350" y="27" text-anchor="middle" class="dnode dtext">point = (0, 5)</text>
+
+          <line x1="350" y1="38" x2="80" y2="66" class="darrow"/>
+          <rect x="10" y="66" width="140" height="30" rx="6" class="dbox"/>
+          <text x="80" y="86" text-anchor="middle" class="dnode dtext skip">case (0, 0)  ✗</text>
+
+          <line x1="350" y1="38" x2="260" y2="66" class="darrow"/>
+          <rect x="190" y="66" width="140" height="30" rx="6" class="dbox match"/>
+          <text x="260" y="86" text-anchor="middle" class="dnode dtext match">case (0, y)  ✓</text>
+
+          <line x1="350" y1="38" x2="440" y2="66" class="darrow"/>
+          <rect x="370" y="66" width="140" height="30" rx="6" class="dbox"/>
+          <text x="440" y="86" text-anchor="middle" class="dnode dtext skip">case (x, 0)  not tried</text>
+
+          <line x1="350" y1="38" x2="620" y2="66" class="darrow"/>
+          <rect x="550" y="66" width="140" height="30" rx="6" class="dbox"/>
+          <text x="620" y="86" text-anchor="middle" class="dnode dtext skip">case (x, y)  not tried</text>
+
+          <line x1="260" y1="96" x2="260" y2="130" class="darrow"/>
+          <rect x="160" y="130" width="200" height="34" rx="6" class="dbox match"/>
+          <text x="260" y="151" text-anchor="middle" class="dnode dtext match">y bound to 5 → prints "Y=5"</text>
+
+          <text x="350" y="200" text-anchor="middle" class="dnode" fill="#5b6472" font-size="11">Patterns after the first match are never evaluated — same rule as if/elif.</text>
+        </svg>
+      </div>
+
+      <div class="block">
+        <p><strong>Level 3 — matching class instances</strong>, extracting attributes into variables:</p>
+        <div class="code-block">
+          <pre class="code">class Point:
+    __match_args__ = ('x', 'y')
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+def where_is(point):
+    match point:
+        case Point(x=0, y=0):
+            print("Origin")
+        case Point(x=0, y=y):
+            print(f"Y={y}")
+        case Point() if point.x == point.y:   # a GUARD
+            print("On the diagonal")
+        case Point():
+            print("Somewhere else")
+        case _:
+            print("Not a point")</pre>
+        </div>
+        <p class="prose-dim">The <code>if</code> after a pattern is a <strong>guard</strong>: the pattern must match first (and its captures happen first), then the guard is checked. If the guard is False, match moves on to the next case — it does <em>not</em> stop trying.</p>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"case Color.RED matches by capturing a variable named RED, like case (x, y) captures x and y."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">A DOTTED name (Color.RED) is a value comparison, never a capture. Only bare names (RED with no dot) capture.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">This is intentional: if bare "RED" appeared in a case, it WOULD capture — meaning it'd match anything and silently shadow the real check. The dot is what tells match "compare against this constant."</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="match-predict" data-predict-id="match-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">command = ["go", "north"]
+match command:
+    case ["go", direction]:
+        print(f"Going {direction}")
+    case ["look"]:
+        print("Looking around")
+    case _:
+        print("Unknown command")</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> Unknown command</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> Going north</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> TypeError: too many values</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> Going command</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          <code>["go", "north"]</code> has 2 elements. The pattern <code>["go", direction]</code> requires the first element to literally equal <code>"go"</code> (it does) and binds the second element to <code>direction</code> — so <code>direction = "north"</code>, printing "Going north".
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: for statement
+    ============================================================ -->
+    <section class="concept" id="c-for">
+      <div class="concept-head">
+        <span class="concept-id">4.2</span>
+        <h2>for Statements</h2>
+      </div>
+      <p class="concept-sub">If you learned C or Pascal's for-loop first, unlearn it here. Python's <code>for</code> doesn't count — it walks through items.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('for-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        A Python <code>for</code> loop is a conveyor belt: it pulls items off a sequence one at a time, in order, and hands each one to your loop variable — until the sequence runs out. It is never about counting from 0 to N; that's just one possible thing you can put on the belt.
+        <div class="tech-note"><span class="label">TECHNICAL</span> <code>for w in words</code> iterates over the <em>items</em> of any sequence (list, string, etc.) in order — unlike C's index-and-condition style loop.</div>
+      </div>
+
+      <div class="exec-viz" data-viz="for-demo">
+        <div class="exec-viz-head">
+          <span class="exec-viz-title"><span class="dot"></span> EXECUTION VISUALIZER</span>
+          <div class="exec-controls">
+            <button class="exec-btn primary" data-action="run">▶ Run</button>
+            <button class="exec-btn" data-action="step">Step →</button>
+            <button class="exec-btn" data-action="reset">↺ Reset</button>
+          </div>
+        </div>
+        <div class="exec-progress"></div>
+        <div class="exec-body">
+          <div class="exec-code">
+            <pre><span class="exec-line" data-line="1">words = ['cat', 'window', 'defenestrate']</span><span class="exec-line" data-line="2">for w in words:</span><span class="exec-line" data-line="3">    print(w, len(w))</span></pre>
+          </div>
+          <div class="exec-side">
+            <div><div class="exec-panel-label">VARIABLES</div><table class="var-table"><tbody></tbody></table></div>
+            <div><div class="exec-panel-label">OUTPUT</div><div class="exec-out"></div></div>
+            <div><div class="exec-panel-label">WHAT'S HAPPENING</div><div class="exec-explain"></div></div>
+          </div>
+        </div>
+        <script type="application/json">
+        {
+          "steps": [
+            {"line": 1, "vars": {"words": "['cat', 'window', 'defenestrate']"}, "changedVars":["words"], "explain": "A list of 3 strings is created."},
+            {"line": 2, "vars": {"w": "'cat'"}, "changedVars":["w"], "explain": "Loop pulls the first item off the belt: w = 'cat'."},
+            {"line": 3, "vars": {}, "output": "cat 3", "explain": "print(w, len(w)) runs for w='cat' — length 3."},
+            {"line": 2, "vars": {"w": "'window'"}, "changedVars":["w"], "explain": "Back to the top. Next item: w = 'window'."},
+            {"line": 3, "vars": {}, "output": "window 6", "explain": "print runs again — length 6."},
+            {"line": 2, "vars": {"w": "'defenestrate'"}, "changedVars":["w"], "explain": "Next item: w = 'defenestrate'."},
+            {"line": 3, "vars": {}, "output": "defenestrate 12", "explain": "print runs — length 12. The belt is now empty, so the loop ends after this."}
+          ]
+        }
+        </script>
+      </div>
+
+      <div class="callout">
+        <span class="label">MODIFYING WHILE ITERATING</span>
+        Deleting or adding items to a collection while looping over that <em>same</em> collection is a classic source of skipped items or crashes. The fix: loop over a <strong>copy</strong>, or build a <strong>new</strong> collection instead.
+      </div>
+
+      <div class="compare">
+        <div class="compare-col before">
+          <span class="cl-label">✗ RISKY — mutating while iterating</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">for user, status in users.items():
+    if status == 'inactive':
+        del users[user]  # RuntimeError!</pre>
+        </div>
+        <div class="compare-col after">
+          <span class="cl-label">✓ SAFE — iterate over a copy</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">for user, status in users.copy().items():
+    if status == 'inactive':
+        del users[user]  # fine</pre>
+        </div>
+      </div>
+      <p class="prose-dim">Or avoid mutation entirely by building a fresh dict: <code>active_users = {u:s for u,s in users.items() if s=='active'}</code> — arguably the cleanest option of all.</p>
+
+      <div class="predict" id="for-predict" data-predict-id="for-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">for ch in "abc":
+    print(ch.upper())</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> abc</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> A, then B, then C on separate lines</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> TypeError: strings aren't iterable</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> ABC on one line</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          Strings ARE sequences in Python, so <code>for ch in "abc"</code> walks through each character. Each <code>print()</code> call ends with a newline by default, so A, B, C land on separate lines.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: range()
+    ============================================================ -->
+    <section class="concept" id="c-range">
+      <div class="concept-head">
+        <span class="concept-id">4.3</span>
+        <h2>The range() Function</h2>
+      </div>
+      <p class="concept-sub">Need numbers to iterate over? range() generates them on demand — without ever building the full list in memory.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('range-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        <code>range(a, b, step)</code> is a recipe for numbers, not a box of numbers. Python only computes the next number when you actually ask for it — that's why <code>print(range(10))</code> shows <code>range(0, 10)</code> instead of a list.
+        <div class="tech-note"><span class="label">TECHNICAL</span> range() returns an <strong>iterable</strong> — an object that produces successive items on demand — which is memory-efficient for huge ranges.</div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-label">INTERACTIVE — DRAG THE SLIDERS, WATCH THE SEQUENCE</div>
+        <div class="slider-row">
+          <label for="rangeStart" style="font-family:var(--mono); font-size:12px; color:var(--text-dim); min-width:60px;">start</label>
+          <input type="range" id="rangeStart" min="-20" max="20" value="0">
+          <span class="slider-val" id="rangeStartVal">0</span>
+        </div>
+        <div class="slider-row">
+          <label for="rangeStop" style="font-family:var(--mono); font-size:12px; color:var(--text-dim); min-width:60px;">stop</label>
+          <input type="range" id="rangeStop" min="-20" max="20" value="10">
+          <span class="slider-val" id="rangeStopVal">10</span>
+        </div>
+        <div class="slider-row">
+          <label for="rangeStep" style="font-family:var(--mono); font-size:12px; color:var(--text-dim); min-width:60px;">step</label>
+          <input type="range" id="rangeStep" min="-5" max="5" value="1">
+          <span class="slider-val" id="rangeStepVal">1</span>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="exec-panel-label">list(range(start, stop, step)) →</div>
+          <div class="console" id="rangeOutput" style="min-height:28px;"></div>
+        </div>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"range(5, 10) includes 10, since 10 is the endpoint I typed."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">The stop value is NEVER included. range(5, 10) → 5, 6, 7, 8, 9. Five numbers, matching len() = 5.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">This "half-open" design makes range(len(a)) automatically produce exactly the legal indices of a — no off-by-one needed.</span></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <p><strong>Iterating over indices:</strong> combine <code>range()</code> with <code>len()</code> — but prefer <code>enumerate()</code> when you also need the value:</p>
+        <div class="code-block">
+          <pre class="code">a = ['Mary', 'had', 'a', 'little', 'lamb']
+
+# Works, but verbose:
+for i in range(len(a)):
+    print(i, a[i])
+
+# Usually preferred:
+for i, word in enumerate(a):
+    print(i, word)</pre>
+        </div>
+      </div>
+
+      <div class="predict" id="range-predict" data-predict-id="range-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">print(sum(range(4)))</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> 4</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">B</span> 10</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">C</span> 6</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> TypeError</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          <code>range(4)</code> generates 0, 1, 2, 3 (4 is excluded). <code>sum()</code> is a function that accepts any iterable, so it adds them: 0+1+2+3 = 6.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: break / continue
+    ============================================================ -->
+    <section class="concept" id="c-breakcontinue">
+      <div class="concept-head">
+        <span class="concept-id">4.4</span>
+        <h2>break and continue Statements</h2>
+      </div>
+      <p class="concept-sub">Two exits from the normal flow of a loop: one leaves entirely, the other just skips ahead.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('bc-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        <code>break</code> = "leave the building now, don't finish this floor or any floor after it."<br>
+        <code>continue</code> = "skip the rest of this floor, but go check the next floor as normal."
+        <div class="tech-note"><span class="label">TECHNICAL</span> <code>break</code> exits the innermost enclosing <code>for</code>/<code>while</code> loop entirely. <code>continue</code> jumps straight to the next iteration.</div>
+      </div>
+
+      <div class="exec-viz" data-viz="break-demo">
+        <div class="exec-viz-head">
+          <span class="exec-viz-title"><span class="dot"></span> break — finding the first factor of each number</span>
+          <div class="exec-controls">
+            <button class="exec-btn primary" data-action="run">▶ Run</button>
+            <button class="exec-btn" data-action="step">Step →</button>
+            <button class="exec-btn" data-action="reset">↺ Reset</button>
+          </div>
+        </div>
+        <div class="exec-progress"></div>
+        <div class="exec-body">
+          <div class="exec-code">
+            <pre><span class="exec-line" data-line="1">for n in range(2, 5):</span><span class="exec-line" data-line="2">    for x in range(2, n):</span><span class="exec-line" data-line="3">        if n % x == 0:</span><span class="exec-line" data-line="4">            print(f"{n} = {x} * {n//x}")</span><span class="exec-line" data-line="5">            break</span></pre>
+          </div>
+          <div class="exec-side">
+            <div><div class="exec-panel-label">VARIABLES</div><table class="var-table"><tbody></tbody></table></div>
+            <div><div class="exec-panel-label">OUTPUT</div><div class="exec-out"></div></div>
+            <div><div class="exec-panel-label">WHAT'S HAPPENING</div><div class="exec-explain"></div></div>
+          </div>
+        </div>
+        <script type="application/json">
+        {
+          "steps": [
+            {"line":1,"vars":{"n":2},"changedVars":["n"],"explain":"Outer loop: n = 2."},
+            {"line":2,"vars":{},"explain":"Inner loop: range(2,2) is empty — no x values to try. Inner loop body never runs for n=2."},
+            {"line":1,"vars":{"n":3},"changedVars":["n"],"explain":"Outer loop: n = 3."},
+            {"line":2,"vars":{"x":2},"changedVars":["x"],"explain":"Inner loop: x = 2."},
+            {"line":3,"vars":{},"explain":"Check: 3 % 2 == 0? No (remainder 1). Condition False."},
+            {"line":1,"vars":{"n":4},"changedVars":["n"],"explain":"Inner loop for n=3 exhausted with no factor found. Outer loop: n = 4."},
+            {"line":2,"vars":{"x":2},"changedVars":["x"],"explain":"Inner loop: x = 2."},
+            {"line":3,"vars":{},"explain":"Check: 4 % 2 == 0? Yes!"},
+            {"line":4,"vars":{},"output":"4 = 2 * 2","explain":"Print the factorization."},
+            {"line":5,"vars":{},"explain":"break fires — this immediately exits the INNER loop only (not the outer one). x never reaches 3."}
+          ]
+        }
+        </script>
+      </div>
+
+      <div class="callout">
+        <span class="label">SCOPE OF BREAK</span>
+        <code>break</code> only escapes the <strong>innermost</strong> loop it's inside. In the visualizer above, break exits the <code>x</code> loop — the outer <code>n</code> loop calmly continues to n=5.
+      </div>
+
+      <div class="compare">
+        <div class="compare-col before">
+          <span class="cl-label">break — leaves the loop</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">for num in range(2, 10):
+    if num % 2 == 0:
+        break
+    print(num)
+# prints: 3 (wait — nothing, since 2 is
+# the FIRST number checked and is even)</pre>
+        </div>
+        <div class="compare-col after">
+          <span class="cl-label">continue — skips ahead</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">for num in range(2, 6):
+    if num % 2 == 0:
+        continue
+    print(num)
+# prints: 3
+#         5
+# (loop keeps running, just skips evens)</pre>
+        </div>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"continue skips to the next LINE, like a goto."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">continue skips to the next ITERATION — jumping straight back to the loop's condition check, not the next line of code in sequence.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">Any code left in the loop body AFTER continue on that pass is skipped entirely, not just the current statement.</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="bc-predict" data-predict-id="bc-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">for i in range(5):
+    if i == 3:
+        break
+    if i == 1:
+        continue
+    print(i)</pre>
+        </div>
+        <div class="predict-q">What gets printed (in order)?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> 0 1 2</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> 0 2</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> 0 1 2 3 4</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> 0 2 3 4</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          i=0: not 3, not 1 → print 0. i=1: not 3, IS 1 → continue, skip print. i=2: not 3, not 1 → print 2. i=3: IS 3 → break, loop ends entirely. Result: 0, 2.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: loop else clause
+    ============================================================ -->
+    <section class="concept" id="c-else">
+      <div class="concept-head">
+        <span class="concept-id">4.5</span>
+        <h2>else Clauses on Loops</h2>
+      </div>
+      <p class="concept-sub">The single most misunderstood keyword pairing in Python. It has almost nothing to do with if/else.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('else-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Rename it in your head to <strong><code>nobreak</code></strong>. A loop's <code>else</code> runs only if the loop finished naturally — completed all its iterations, or its while-condition went False — <em>without</em> ever hitting a <code>break</code>.
+        <div class="tech-note"><span class="label">TECHNICAL</span> The else clause is skipped if the loop ends via break, return, or a raised exception — it behaves like a try statement's else (runs when nothing interrupted the flow), not like an if's else.</div>
+      </div>
+
+      <div class="exec-viz" data-viz="else-demo">
+        <div class="exec-viz-head">
+          <span class="exec-viz-title"><span class="dot"></span> prime check — for/else in action</span>
+          <div class="exec-controls">
+            <button class="exec-btn primary" data-action="run">▶ Run</button>
+            <button class="exec-btn" data-action="step">Step →</button>
+            <button class="exec-btn" data-action="reset">↺ Reset</button>
+          </div>
+        </div>
+        <div class="exec-progress"></div>
+        <div class="exec-body">
+          <div class="exec-code">
+            <pre><span class="exec-line" data-line="1">for n in [4, 5]:</span><span class="exec-line" data-line="2">    for x in range(2, n):</span><span class="exec-line" data-line="3">        if n % x == 0:</span><span class="exec-line" data-line="4">            print(n, 'equals', x, '*', n//x)</span><span class="exec-line" data-line="5">            break</span><span class="exec-line" data-line="6">    else:</span><span class="exec-line" data-line="7">        print(n, 'is a prime number')</span></pre>
+          </div>
+          <div class="exec-side">
+            <div><div class="exec-panel-label">VARIABLES</div><table class="var-table"><tbody></tbody></table></div>
+            <div><div class="exec-panel-label">OUTPUT</div><div class="exec-out"></div></div>
+            <div><div class="exec-panel-label">WHAT'S HAPPENING</div><div class="exec-explain"></div></div>
+          </div>
+        </div>
+        <script type="application/json">
+        {
+          "steps": [
+            {"line":1,"vars":{"n":4},"changedVars":["n"],"explain":"Outer: n = 4."},
+            {"line":2,"vars":{"x":2},"changedVars":["x"],"explain":"Inner: x = 2."},
+            {"line":3,"vars":{},"explain":"4 % 2 == 0? Yes."},
+            {"line":4,"vars":{},"output":"4 equals 2 * 2","explain":"Factor found — print it."},
+            {"line":5,"vars":{},"explain":"break exits the inner loop. Because we broke out, the else clause on line 6 is SKIPPED entirely."},
+            {"line":1,"vars":{"n":5},"changedVars":["n"],"explain":"Outer: n = 5."},
+            {"line":2,"vars":{"x":2},"changedVars":["x"],"explain":"Inner: x = 2."},
+            {"line":3,"vars":{},"explain":"5 % 2 == 0? No."},
+            {"line":2,"vars":{"x":3},"changedVars":["x"],"explain":"Inner: x = 3."},
+            {"line":3,"vars":{},"explain":"5 % 3 == 0? No."},
+            {"line":2,"vars":{"x":4},"changedVars":["x"],"explain":"Inner: x = 4."},
+            {"line":3,"vars":{},"explain":"5 % 4 == 0? No. range(2,5) is now exhausted — inner loop ends NATURALLY, no break happened."},
+            {"line":6,"vars":{},"explain":"No break occurred this time, so the else clause on the for-x loop DOES run."},
+            {"line":7,"vars":{},"output":"5 is a prime number","explain":"else block executes: 5 had no factor, so it's prime."}
+          ]
+        }
+        </script>
+      </div>
+
+      <div class="callout">
+        <span class="label">READING TIP FROM THE SOURCE</span>
+        Mentally pair the <code>else</code> with the <code>if</code> <em>inside</em> the loop — as the loop runs, it behaves like a sequence of if/if/if/else. Every time the if is True, break fires. If the if is never True across the whole loop, the else outside finally runs.
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"else belongs to the if statement right above it inside the loop."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">Look at the INDENTATION: the else lines up with 'for', not with 'if'. It belongs to the loop, not the inner if.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">This is exactly the example the Python docs call out: "Look closely: the else clause belongs to the for loop, not the if statement."</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="else-predict" data-predict-id="else-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">for i in range(3):
+    print("checking", i)
+else:
+    print("loop finished cleanly")</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> Only "checking 0", "checking 1", "checking 2" — no else line, since there's no break in sight to pair with</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> "checking 0/1/2" then "loop finished cleanly"</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> SyntaxError — else needs an if or a break present</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> Only "loop finished cleanly" — the for body never runs</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          There's no break anywhere, so the loop simply runs to completion — which counts as finishing "without a break." The else clause always runs unless a break interrupted it; no break needs to be present in the loop for else to be legal or to fire.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: pass statement
+    ============================================================ -->
+    <section class="concept" id="c-pass">
+      <div class="concept-head">
+        <span class="concept-id">4.6</span>
+        <h2>pass Statements</h2>
+      </div>
+      <p class="concept-sub">The shortest statement in Python. It does precisely nothing — which is exactly the point.</p>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Python's grammar sometimes demands a body ("something must go here"), but you have nothing to say yet. <code>pass</code> is a placeholder that satisfies the syntax while doing zero work at runtime.
+        <div class="tech-note"><span class="label">TECHNICAL</span> Commonly used for stub functions, empty classes, and busy-wait loops during development.</div>
+      </div>
+
+      <div class="compare">
+        <div class="compare-col before">
+          <span class="cl-label">Empty class placeholder</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">class MyEmptyClass:
+    pass</pre>
+        </div>
+        <div class="compare-col after">
+          <span class="cl-label">Unfinished function placeholder</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">def initlog(*args):
+    pass   # TODO: implement</pre>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="label">pass vs ...</span>
+        Many developers use the ellipsis literal <code>...</code> in place of <code>pass</code> as a placeholder body. It has no special meaning to the language (any constant expression would technically work) — it's purely a convention, not a rule.
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Defining Functions
+    ============================================================ -->
+    <section class="concept" id="c-deffunc">
+      <div class="concept-head">
+        <span class="concept-id">4.8</span>
+        <h2>Defining Functions</h2>
+      </div>
+      <p class="concept-sub">Every function you define secretly returns something — even the ones that "just print stuff."</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('deffunc-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Every function call opens a fresh, private notebook (its local symbol table). Anything the function assigns gets written in THAT notebook, not the caller's. When the function ends, the notebook is thrown away — unless you hand something back with <code>return</code>.
+        <div class="tech-note"><span class="label">TECHNICAL</span> Variable references look up the chain: local → enclosing function(s) → global → built-ins. Variable <em>assignment</em>, however, always writes to local — unless declared <code>global</code> or <code>nonlocal</code>.</div>
+      </div>
+
+      <div class="exec-viz" data-viz="fib-demo">
+        <div class="exec-viz-head">
+          <span class="exec-viz-title"><span class="dot"></span> fib2() — building and returning a list</span>
+          <div class="exec-controls">
+            <button class="exec-btn primary" data-action="run">▶ Run</button>
+            <button class="exec-btn" data-action="step">Step →</button>
+            <button class="exec-btn" data-action="reset">↺ Reset</button>
+          </div>
+        </div>
+        <div class="exec-progress"></div>
+        <div class="exec-body">
+          <div class="exec-code">
+            <pre><span class="exec-line" data-line="1">def fib2(n):</span><span class="exec-line" data-line="2">    result = []</span><span class="exec-line" data-line="3">    a, b = 0, 1</span><span class="exec-line" data-line="4">    while a &lt; n:</span><span class="exec-line" data-line="5">        result.append(a)</span><span class="exec-line" data-line="6">        a, b = b, a+b</span><span class="exec-line" data-line="7">    return result</span><span class="exec-line" data-line="9">f = fib2(8)</span></pre>
+          </div>
+          <div class="exec-side">
+            <div><div class="exec-panel-label">VARIABLES (inside fib2's notebook)</div><table class="var-table"><tbody></tbody></table></div>
+            <div><div class="exec-panel-label">OUTPUT</div><div class="exec-out"></div></div>
+            <div><div class="exec-panel-label">WHAT'S HAPPENING</div><div class="exec-explain"></div></div>
+          </div>
+        </div>
+        <script type="application/json">
+        {
+          "steps": [
+            {"line":9,"vars":{},"explain":"fib2(8) is called. n=8 opens a brand new local notebook for this call."},
+            {"line":2,"vars":{"n":8,"result":"[]"},"changedVars":["n","result"],"explain":"result starts as an empty list — local to this call only."},
+            {"line":3,"vars":{"a":0,"b":1},"changedVars":["a","b"],"explain":"a and b are seeded: a=0, b=1."},
+            {"line":4,"vars":{},"explain":"Check: is a < n? 0 < 8 → True. Enter the loop."},
+            {"line":5,"vars":{"result":"[0]"},"changedVars":["result"],"explain":"result.append(a) → result becomes [0]."},
+            {"line":6,"vars":{"a":1,"b":1},"changedVars":["a","b"],"explain":"a, b = b, a+b → a becomes old b (1), b becomes old a+b (0+1=1)."},
+            {"line":4,"vars":{},"explain":"1 < 8 → True."},
+            {"line":5,"vars":{"result":"[0, 1]"},"changedVars":["result"],"explain":"append(1) → [0, 1]."},
+            {"line":6,"vars":{"a":1,"b":2},"changedVars":["a","b"],"explain":"a=1, b=1+1=2."},
+            {"line":4,"vars":{},"explain":"1 < 8 → True. (Loop continues similarly — fast-forwarding...)"},
+            {"line":5,"vars":{"result":"[0, 1, 1, 2, 3, 5]"},"changedVars":["result"],"explain":"After several more iterations, result has grown to [0, 1, 1, 2, 3, 5]."},
+            {"line":4,"vars":{"a":8},"changedVars":["a"],"explain":"Eventually a=8. Check: 8 < 8? False. Loop ends."},
+            {"line":7,"vars":{},"output":"f = [0, 1, 1, 2, 3, 5]","explain":"return result hands the list back to the caller. fib2's local notebook is discarded, but the list itself survives because it was returned."}
+          ]
+        }
+        </script>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"A function with no return statement, like one that only calls print(), returns nothing at all."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">It always returns something: None. "Falling off the end" of a function is exactly the same as writing "return None".</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">print(fib(0)) explicitly shows None printed — the interpreter just normally hides a bare None result at the prompt, which is why beginners never notice it.</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="deffunc-predict" data-predict-id="deffunc-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">def greet(name):
+    message = f"Hello, {name}"
+
+result = greet("Ada")
+print(result)</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> Hello, Ada</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> None</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> NameError: message not defined</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> Nothing — blank line</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          greet() builds the string but never returns it — it just assigns it to a LOCAL variable that vanishes when the function ends. Falling off the end returns None, so result = None, and print(result) shows "None".
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Default Argument Values
+    ============================================================ -->
+    <section class="concept" id="c-defaults">
+      <div class="concept-head">
+        <span class="concept-id">4.9.1</span>
+        <h2>Default Argument Values</h2>
+      </div>
+      <p class="concept-sub">The most famous gotcha in all of Python starts here. Read this one twice.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('mutable-default-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        A default value is computed <strong>once</strong>, at the moment Python reads the <code>def</code> line — not fresh on every call. Think of it as a sticky note pinned to the function's definition, written a single time.
+        <div class="tech-note"><span class="label">TECHNICAL</span> Default values are evaluated in the defining scope at function-definition time, and that same object is reused for every call that doesn't override it.</div>
+      </div>
+
+      <div class="code-block">
+        <pre class="code">i = 5
+def f(arg=i):
+    print(arg)
+i = 6
+f()   # prints 5, NOT 6 — the default was locked in when def ran</pre>
+      </div>
+
+      <div class="widget">
+        <div class="widget-label">INTERACTIVE — THE MUTABLE DEFAULT TRAP, LIVE</div>
+        <div class="code-block" style="margin-bottom:14px;">
+          <pre class="code">def f(a, L=[]):
+    L.append(a)
+    return L</pre>
+        </div>
+        <div class="toggle-row">
+          <button class="toggle" id="mutableToggle" role="switch" aria-checked="false" aria-label="Toggle between mutable default and safe pattern"></button>
+          <span class="toggle-text" id="mutableToggleLabel">Using <code>L=[]</code> (shared mutable default)</span>
+        </div>
+        <div class="exec-panel-label" style="margin-top:10px;">CLICK TO CALL f(1), THEN f(2), THEN f(3):</div>
+        <div style="display:flex; gap:8px; margin:8px 0;">
+          <button class="exec-btn" id="callF1">f(1)</button>
+          <button class="exec-btn" id="callF2">f(2)</button>
+          <button class="exec-btn" id="callF3">f(3)</button>
+          <button class="exec-btn" id="callFReset">↺ Reset calls</button>
+        </div>
+        <div class="console" id="mutableOutput" style="min-height:60px;"></div>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"L=[] gives me a fresh empty list every time f() is called, just like inside the function body."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">The SAME list object is reused across every call that relies on the default — appends from call 1 are still there in call 2.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY / FIX</span><span class="v">Use L=None as the default, then inside the function: "if L is None: L = []" — this creates a genuinely new list on every call.</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="mutable-default-predict" data-predict-id="defaults-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">def f(a, L=None):
+    if L is None:
+        L = []
+    L.append(a)
+    return L
+
+print(f(1))
+print(f(2))</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> [1]  then  [1, 2]</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> [1]  then  [2]</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> [1, 2]  then  [1, 2]</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> Error — L is None can't be reassigned</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          Because the default is None (immutable, and just a signal), each call that doesn't pass L creates a genuinely NEW empty list via "L = []" inside the function body. Nothing is shared between calls anymore.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Keyword Arguments
+    ============================================================ -->
+    <section class="concept" id="c-kwargs">
+      <div class="concept-head">
+        <span class="concept-id">4.9.2</span>
+        <h2>Keyword Arguments</h2>
+      </div>
+      <p class="concept-sub">Calling by name instead of position. Great for readability — but it has strict rules about ordering and duplicates.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('kwargs-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Positional args are "the first box, then the second box, then the third." Keyword args are "the box labeled <em>voltage</em>, wherever it goes." You can mix both — but once you start labeling boxes, every box after must also be labeled.
+        <div class="tech-note"><span class="label">TECHNICAL</span> In a call, keyword arguments must come after positional arguments. No argument may receive a value more than once — mixing a positional and keyword value for the same parameter is a TypeError.</div>
+      </div>
+
+      <div class="code-block">
+        <pre class="code">def parrot(voltage, state='a stiff', action='voom', type='Norwegian Blue'):
+    print(f"Wouldn't {action} at {voltage} volts. {state}. {type}.")
+
+parrot(1000)                                    # ✓ 1 positional
+parrot(voltage=1000)                            # ✓ 1 keyword
+parrot(action='VOOOOOM', voltage=1000000)       # ✓ keyword order doesn't matter
+parrot('a million', 'bereft of life', 'jump')   # ✓ 3 positional</pre>
+      </div>
+
+      <div class="widget">
+        <div class="widget-label">INTERACTIVE — VALID OR INVALID CALL?</div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:14px;">Given <code>def parrot(voltage, state='a stiff', action='voom', type='Norwegian Blue')</code>, click each call to check it.</p>
+        <div id="kwargsQuizList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <div class="trap">
+        <div class="trap-head">⚠ COMMON TRAP</div>
+        <div class="trap-flow">
+          <div class="trap-step think"><span class="k">BEGINNERS THINK</span><span class="v">"function(0, a=0) should work — Python will just figure out I mean the same thing twice, or override it."</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step actual"><span class="k">PYTHON ACTUALLY DOES</span><span class="v">TypeError: got multiple values for argument 'a'. The positional 0 already filled parameter a; the keyword a=0 tries to fill it AGAIN.</span></div>
+          <div class="trap-arrow-sep">↓</div>
+          <div class="trap-step"><span class="k">WHY</span><span class="v">Python resolves positional arguments to parameter slots first, then keyword arguments. A collision on the same slot is always an error, never a silent overwrite.</span></div>
+        </div>
+      </div>
+
+      <div class="predict" id="kwargs-predict" data-predict-id="kwargs-1">
+        <div class="predict-head">🔮 PREDICTION MODE — VALID OR ERROR?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">def parrot(voltage, state='a stiff', action='voom'):
+    pass
+
+parrot(110, voltage=220)</pre>
+        </div>
+        <div class="predict-q">What happens?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> voltage becomes 220 (keyword overrides positional)</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> TypeError — duplicate value for 'voltage'</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> voltage becomes 110 (positional wins)</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> Runs fine, prints nothing since function body is just "pass"</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          110 is a positional argument, so it fills voltage first. Then voltage=220 tries to fill the SAME parameter again by keyword. Same trap as function(0, a=0) — always a TypeError.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Special Parameters (/ and *)
+    ============================================================ -->
+    <section class="concept" id="c-special">
+      <div class="concept-head">
+        <span class="concept-id">4.9.3</span>
+        <h2>Special Parameters — / and *</h2>
+      </div>
+      <p class="concept-sub">Three zones in a function signature, controlled by two punctuation marks. This is the section interviewers love to probe.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('special-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        Read a signature left to right as three rooms separated by doors: everything before <code>/</code> can ONLY be reached by position (name doesn't matter — like arguments to <code>len()</code>). Everything after <code>*</code> can ONLY be reached by name. The middle room, with no doors around it, accepts either.
+        <div class="tech-note"><span class="label">TECHNICAL</span> <code>def f(pos1, pos2, /, pos_or_kwd, *, kwd1, kwd2)</code> — both <code>/</code> and <code>*</code> are optional and independent of each other.</div>
+      </div>
+
+      <div class="diagram">
+        <div class="diagram-label">FLOW VISUALIZER — the three zones of a signature</div>
+        <svg viewBox="0 0 700 160" width="100%" height="160" role="img" aria-label="Diagram showing positional-only, positional-or-keyword, and keyword-only zones in a function signature">
+          <style>
+            .zbox{stroke-width:1.5;}
+            .zlabel{font-family:'JetBrains Mono',monospace; font-size:11px; fill:#8b93a1;}
+            .zcode{font-family:'JetBrains Mono',monospace; font-size:13px; fill:#c9d1d9; font-weight:600;}
+          </style>
+          <rect x="10" y="20" width="200" height="50" rx="8" fill="rgba(79,157,255,0.1)" stroke="#4f9dff" class="zbox"/>
+          <text x="110" y="48" text-anchor="middle" class="zcode">pos1, pos2</text>
+          <text x="110" y="12" text-anchor="middle" class="zlabel">POSITIONAL-ONLY</text>
+
+          <text x="222" y="48" text-anchor="middle" class="zcode" fill="#f2c94c">/</text>
+
+          <rect x="250" y="20" width="200" height="50" rx="8" fill="rgba(61,220,132,0.1)" stroke="#3ddc84" class="zbox"/>
+          <text x="350" y="48" text-anchor="middle" class="zcode">pos_or_kwd</text>
+          <text x="350" y="12" text-anchor="middle" class="zlabel">EITHER WAY</text>
+
+          <text x="462" y="48" text-anchor="middle" class="zcode" fill="#f2c94c">*</text>
+
+          <rect x="490" y="20" width="200" height="50" rx="8" fill="rgba(178,133,240,0.1)" stroke="#b285f0" class="zbox"/>
+          <text x="590" y="48" text-anchor="middle" class="zcode">kwd1, kwd2</text>
+          <text x="590" y="12" text-anchor="middle" class="zlabel">KEYWORD-ONLY</text>
+
+          <text x="110" y="92" text-anchor="middle" class="zlabel">f(1, 2, ...)</text>
+          <text x="350" y="92" text-anchor="middle" class="zlabel">f(..., 3) or f(..., pos_or_kwd=3)</text>
+          <text x="590" y="92" text-anchor="middle" class="zlabel">f(..., kwd1=5, kwd2=6)</text>
+
+          <text x="350" y="130" text-anchor="middle" class="zlabel" font-size="11">Naming a positional-only param by keyword, or a keyword-only param by position, is always a TypeError.</text>
+        </svg>
+      </div>
+
+      <div class="widget">
+        <div class="widget-label">INTERACTIVE — TEST A CALL AGAINST THE SIGNATURE</div>
+        <div class="code-block" style="margin-bottom:14px;">
+          <pre class="code">def combined_example(pos_only, /, standard, *, kwd_only):
+    print(pos_only, standard, kwd_only)</pre>
+        </div>
+        <div class="slider-row" style="flex-wrap:wrap; gap:8px;">
+          <button class="exec-btn" data-call="combined_example(1, 2, 3)">combined_example(1, 2, 3)</button>
+          <button class="exec-btn" data-call="combined_example(1, 2, kwd_only=3)">combined_example(1, 2, kwd_only=3)</button>
+          <button class="exec-btn" data-call="combined_example(1, standard=2, kwd_only=3)">combined_example(1, standard=2, kwd_only=3)</button>
+          <button class="exec-btn" data-call="combined_example(pos_only=1, standard=2, kwd_only=3)">combined_example(pos_only=1, standard=2, kwd_only=3)</button>
+        </div>
+        <div class="exec-panel-label" style="margin-top:12px;">RESULT</div>
+        <div class="console" id="specialParamsOutput" style="min-height:36px;"><span class="placeholder">Click a call above to test it against the signature.</span></div>
+      </div>
+
+      <div class="callout">
+        <span class="label">WHY USE THESE AT ALL?</span>
+        Positional-only: hides parameter names from the caller — useful when names are meaningless, or to freely rename them later without breaking an API. Keyword-only: forces clarity when the argument's meaning isn't obvious from position alone.
+      </div>
+
+      <div class="predict" id="special-predict" data-predict-id="special-1">
+        <div class="predict-head">🔮 PREDICTION MODE — VALID OR ERROR?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">def pos_only_arg(arg, /):
+    print(arg)
+
+pos_only_arg(arg=1)</pre>
+        </div>
+        <div class="predict-q">What happens?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> Prints 1 — arg is still a valid keyword name</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> TypeError — positional-only argument passed as keyword</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> Prints None</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> SyntaxError at the function definition</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          The trailing <code>/</code> makes arg positional-only — its name is not part of the public calling interface at all. Calling with arg=1 is a TypeError, even though arg is the correct parameter name.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: *args and **kwargs
+    ============================================================ -->
+    <section class="concept" id="c-arbitrary">
+      <div class="concept-head">
+        <span class="concept-id">4.9.2 / 4.9.4</span>
+        <h2>Arbitrary Argument Lists — *args, **kwargs</h2>
+      </div>
+      <p class="concept-sub">When you don't know in advance how many arguments will show up.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('arbitrary-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        <code>*args</code> is a bag that catches every leftover <em>positional</em> argument, as a tuple. <code>**kwargs</code> is a bag that catches every leftover <em>keyword</em> argument, as a dictionary. Order in the signature matters: named params, then <code>*args</code>, then <code>**kwargs</code>.
+        <div class="tech-note"><span class="label">TECHNICAL</span> Any formal parameter after *args becomes keyword-only automatically. *name must occur before **name.</div>
+      </div>
+
+      <div class="exec-viz" data-viz="cheeseshop-demo">
+        <div class="exec-viz-head">
+          <span class="exec-viz-title"><span class="dot"></span> cheeseshop() — watching the bags fill up</span>
+          <div class="exec-controls">
+            <button class="exec-btn primary" data-action="run">▶ Run</button>
+            <button class="exec-btn" data-action="step">Step →</button>
+            <button class="exec-btn" data-action="reset">↺ Reset</button>
+          </div>
+        </div>
+        <div class="exec-progress"></div>
+        <div class="exec-body">
+          <div class="exec-code">
+            <pre><span class="exec-line" data-line="1">def cheeseshop(kind, *arguments, **keywords):</span><span class="exec-line" data-line="2">    print("kind:", kind)</span><span class="exec-line" data-line="3">    print("arguments:", arguments)</span><span class="exec-line" data-line="4">    print("keywords:", keywords)</span><span class="exec-line" data-line="6">cheeseshop("Limburger", "so runny", "very runny",</span><span class="exec-line" data-line="7">           shopkeeper="Michael", client="John")</span></pre>
+          </div>
+          <div class="exec-side">
+            <div><div class="exec-panel-label">VARIABLES (inside cheeseshop's notebook)</div><table class="var-table"><tbody></tbody></table></div>
+            <div><div class="exec-panel-label">OUTPUT</div><div class="exec-out"></div></div>
+            <div><div class="exec-panel-label">WHAT'S HAPPENING</div><div class="exec-explain"></div></div>
+          </div>
+        </div>
+        <script type="application/json">
+        {
+          "steps": [
+            {"line":6,"vars":{},"explain":"The call is made with 1 named-matching positional value, 2 extra positional values, and 2 keyword values."},
+            {"line":1,"vars":{"kind":"'Limburger'"},"changedVars":["kind"],"explain":"kind grabs the first positional argument: 'Limburger'."},
+            {"line":1,"vars":{"arguments":"('so runny', 'very runny')"},"changedVars":["arguments"],"explain":"The 2 leftover positional args are swept into the *arguments tuple."},
+            {"line":1,"vars":{"keywords":"{'shopkeeper': 'Michael', 'client': 'John'}"},"changedVars":["keywords"],"explain":"Both keyword args are swept into the **keywords dict, in the order they were passed."},
+            {"line":2,"vars":{},"output":"kind: Limburger","explain":"Print kind."},
+            {"line":3,"vars":{},"output":"arguments: ('so runny', 'very runny')","explain":"Print the *args tuple."},
+            {"line":4,"vars":{},"output":"keywords: {'shopkeeper': 'Michael', 'client': 'John'}","explain":"Print the **kwargs dict."}
+          ]
+        }
+        </script>
+      </div>
+
+      <div class="predict" id="arbitrary-predict" data-predict-id="arbitrary-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">def concat(*args, sep="/"):
+    return sep.join(args)
+
+print(concat("earth", "mars", "venus", sep="."))</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> earth/mars/venus</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> earth.mars.venus</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> TypeError — sep can't follow *args</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> ('earth', 'mars', 'venus').</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          "earth", "mars", "venus" all get swept into *args (since sep is keyword-only, appearing after *args). sep="." overrides its "/" default. join uses "." between elements.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Unpacking Argument Lists
+    ============================================================ -->
+    <section class="concept" id="c-unpack">
+      <div class="concept-head">
+        <span class="concept-id">4.9.5</span>
+        <h2>Unpacking Argument Lists</h2>
+      </div>
+      <p class="concept-sub">The reverse of *args/**kwargs: you already have a list or dict, and need to blow it apart into separate arguments.</p>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        <code>*</code> and <code>**</code> at a CALL site do the opposite of what they do at a definition site: instead of gathering loose arguments into a container, they spill a container's contents out as separate arguments.
+      </div>
+
+      <div class="compare">
+        <div class="compare-col before">
+          <span class="cl-label">Packing (at definition)</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">def f(*args, **kwargs):
+    ...
+# loose args → gathered into
+# a tuple / dict</pre>
+        </div>
+        <div class="compare-col after">
+          <span class="cl-label">Unpacking (at call site)</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">args = [3, 6]
+list(range(*args))
+# a list/dict → spilled into
+# separate arguments</pre>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <pre class="code">d = {"voltage": "four million", "state": "bleedin' demised", "action": "VOOM"}
+parrot(**d)
+# equivalent to:
+# parrot(voltage="four million", state="bleedin' demised", action="VOOM")</pre>
+      </div>
+
+      <div class="predict" data-predict-id="unpack-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">args = [3, 6]
+print(list(range(*args)))</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> [3, 6]</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">B</span> [3, 4, 5]</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">C</span> TypeError — range() takes one argument</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> [0, 1, 2, 3, 4, 5]</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          *args unpacks the list [3, 6] into two separate positional arguments — exactly like calling range(3, 6). That generates 3, 4, 5 (6 excluded, as always).
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Lambda Expressions
+    ============================================================ -->
+    <section class="concept" id="c-lambda">
+      <div class="concept-head">
+        <span class="concept-id">4.9.6</span>
+        <h2>Lambda Expressions</h2>
+      </div>
+      <p class="concept-sub">A function so small it doesn't get a name — or a def, or a return keyword.</p>
+
+      <div class="skip-row">
+        <button class="skip-btn" onclick="document.getElementById('lambda-predict').scrollIntoView({behavior:'smooth'})">⚡ Already know this → Skip to challenge</button>
+      </div>
+
+      <div class="simple-model">
+        <span class="label">SIMPLE MODEL</span>
+        <code>lambda a, b: a + b</code> is exactly the same thing as <code>def f(a, b): return a + b</code> — just squeezed onto one line, with the return implied and no name required. It's syntactic sugar, nothing more.
+        <div class="tech-note"><span class="label">TECHNICAL</span> Lambdas are restricted to a single expression (no statements, no multiple lines) and can capture variables from the enclosing scope, just like nested def functions.</div>
+      </div>
+
+      <div class="compare">
+        <div class="compare-col before">
+          <span class="cl-label">Normal function</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">def make_incrementor(n):
+    def inner(x):
+        return x + n
+    return inner
+
+f = make_incrementor(42)
+f(0)   # 42</pre>
+        </div>
+        <div class="compare-col after">
+          <span class="cl-label">Same thing, as a lambda</span>
+          <pre class="code" style="padding:0; background:none; font-size:12.5px;">def make_incrementor(n):
+    return lambda x: x + n
+
+f = make_incrementor(42)
+f(0)   # 42</pre>
+        </div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-label">INTERACTIVE — SORT WITH A LAMBDA KEY</div>
+        <div class="code-block" style="margin-bottom:14px;">
+          <pre class="code">pairs = [(1, 'one'), (2, 'two'), (3, 'three'), (4, 'four')]
+pairs.sort(key=lambda pair: pair[1])</pre>
+        </div>
+        <div class="toggle-row">
+          <button class="toggle" id="lambdaSortToggle"></button>
+          <span class="toggle-text">Sort by <span id="lambdaSortField">pair[1] (the word)</span> instead of pair[0] (the number)</span>
+        </div>
+        <div class="exec-panel-label" style="margin-top:10px;">RESULT</div>
+        <div class="console" id="lambdaSortOutput"></div>
+      </div>
+
+      <div class="predict" id="lambda-predict" data-predict-id="lambda-1">
+        <div class="predict-head">🔮 PREDICTION MODE — WHAT WILL PYTHON PRINT?</div>
+        <div class="code-block" style="margin:0 0 14px;">
+          <pre class="code">square = lambda x: x * x
+print(square(5))</pre>
+        </div>
+        <div class="predict-q">What gets printed?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false"><span class="letter">A</span> lambda x: x * x</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">B</span> 10</button>
+          <button class="predict-opt" data-correct="true"><span class="letter">C</span> 25</button>
+          <button class="predict-opt" data-correct="false"><span class="letter">D</span> SyntaxError — lambda can't be assigned to a name</button>
+        </div>
+        <div class="predict-result">
+          <span class="verdict"></span>
+          square is just a name bound to the lambda function object, exactly like any def'd function. Calling square(5) evaluates x*x with x=5, giving 25.
+        </div>
+        <button class="predict-reset">↺ Try again</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CONCEPT: Docstrings & Coding Style
+    ============================================================ -->
+    <section class="concept" id="c-docstyle">
+      <div class="concept-head">
+        <span class="concept-id">4.9.7 / 4.10</span>
+        <h2>Docstrings & Coding Style (PEP 8)</h2>
+      </div>
+      <p class="concept-sub">Not exciting. Extremely interview-relevant. Skimmed by beginners, tested by interviewers.</p>
+
+      <div class="block">
+        <p><strong>Docstring conventions:</strong></p>
+        <ul class="clean">
+          <li>First line: a short, capitalized summary ending with a period — don't restate the function's name.</li>
+          <li>If there's more, leave a blank line after the summary before further paragraphs.</li>
+          <li>Access it anytime via <code>function.__doc__</code>.</li>
+        </ul>
+        <div class="code-block">
+          <pre class="code">def my_function():
+    """Do nothing, but document it.
+
+    No, really, it doesn't do anything.
+    """
+    pass
+
+print(my_function.__doc__)
+# Do nothing, but document it.
+#
+#     No, really, it doesn't do anything.</pre>
+        </div>
+      </div>
+
+      <div class="block">
+        <p><strong>PEP 8, the essentials an interviewer expects you to just know:</strong></p>
+        <table class="revision-table">
+          <thead><tr><th>Rule</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td class="kw">Indentation</td><td>4 spaces, never tabs.</td></tr>
+            <tr><td class="kw">Line length</td><td>Wrap before 79 characters.</td></tr>
+            <tr><td class="kw">Blank lines</td><td>Separate functions/classes and major blocks.</td></tr>
+            <tr><td class="kw">Spacing</td><td>Spaces around operators and after commas — but not just inside brackets: <code>f(1, 2) + g(3, 4)</code>.</td></tr>
+            <tr><td class="kw">Naming</td><td><code>UpperCamelCase</code> for classes, <code>lowercase_with_underscores</code> for functions/methods.</td></tr>
+            <tr><td class="kw">self</td><td>Always the name of a method's first argument.</td></tr>
+            <tr><td class="kw">Encoding</td><td>Use UTF-8 (Python's default); avoid non-ASCII identifiers for shared/international code.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="iv-card" data-iv-id="l1-pep8">
+        <span class="iv-level l1">LEVEL 1 · RECOGNITION</span>
+        <div class="iv-q">Quick check — is this line PEP 8 compliant? <code class="mono">a = f(1,2) + g(3,4)</code></div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer">
+          <span class="a-label">ANSWER</span>
+          No — PEP 8 wants a space after each comma: <code>f(1, 2) + g(3, 4)</code>. Spacing after commas (but not directly inside brackets) is one of the most commonly checked style rules.
+        </div>
+        <div class="iv-self">
+          <button class="got-it">✓ I knew this</button>
+          <button class="missed-it">✗ I missed this</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FAST REVISION MODE
+    ============================================================ -->
+    <div class="section-marker"><span class="line"></span><span class="txt">FAST REVISION</span><span class="line"></span></div>
+    <section class="concept" id="c-fastrevision">
+      <div class="concept-head">
+        <span class="concept-id">3–5 MIN</span>
+        <h2>Fast Revision Scan</h2>
+      </div>
+      <p class="concept-sub">Everything above, compressed. Scan top to bottom — if a row makes you pause, jump back to that concept in the sidebar.</p>
+
+      <table class="revision-table">
+        <thead><tr><th>Concept</th><th>One-line mental model</th><th>Trap to remember</th></tr></thead>
+        <tbody>
+          <tr><td class="kw">if/elif/else</td><td>First True branch wins; the rest are never even checked.</td><td class="trap-c">elif isn't independently evaluated once an earlier branch matched.</td></tr>
+          <tr><td class="kw">match</td><td>Elif-chain that can also unpack &amp; bind values from the subject.</td><td class="trap-c">Dotted names (Color.RED) compare; bare names (RED) capture.</td></tr>
+          <tr><td class="kw">for</td><td>Walks items of any sequence, in order — not a numeric counter.</td><td class="trap-c">Mutating a collection while iterating it → loop over <code>.copy()</code> instead.</td></tr>
+          <tr><td class="kw">range(a,b,s)</td><td>Generates numbers on demand; b is never included.</td><td class="trap-c">range(5,10) has 5 items, not 6 — stop is exclusive.</td></tr>
+          <tr><td class="kw">break</td><td>Exits the innermost loop immediately, entirely.</td><td class="trap-c">Doesn't touch an outer loop it's nested inside.</td></tr>
+          <tr><td class="kw">continue</td><td>Skips to the next iteration, not the next line.</td><td class="trap-c">Any remaining code in that pass of the loop body is skipped.</td></tr>
+          <tr><td class="kw">loop else</td><td>Rename it "nobreak" — runs only if no break occurred.</td><td class="trap-c">Indentation shows it belongs to the loop, not to an inner if.</td></tr>
+          <tr><td class="kw">pass</td><td>Does literally nothing; satisfies required syntax.</td><td class="trap-c">— (no real trap; <code>...</code> is a common stylistic alternative)</td></tr>
+          <tr><td class="kw">def / return</td><td>Every function returns something — None if you never say return.</td><td class="trap-c">Falling off the end == "return None", silently.</td></tr>
+          <tr><td class="kw">default args</td><td>Computed ONCE at def time, not per call.</td><td class="trap-c">Mutable default (L=[]) is shared/accumulated across calls — use L=None instead.</td></tr>
+          <tr><td class="kw">keyword args</td><td>Keywords must follow positionals; no double-filling a slot.</td><td class="trap-c">f(0, a=0) → TypeError even though it "looks" harmless.</td></tr>
+          <tr><td class="kw">/ and *</td><td>Signature has 3 zones: positional-only | either | keyword-only.</td><td class="trap-c">Naming a positional-only param by keyword is always a TypeError.</td></tr>
+          <tr><td class="kw">*args/**kwargs</td><td>Sweep leftover positionals into a tuple, keywords into a dict.</td><td class="trap-c">*name must appear before **name in the signature.</td></tr>
+          <tr><td class="kw">unpacking *,**</td><td>At a CALL site, * and ** spill a container OUT into arguments.</td><td class="trap-c">Opposite direction from *args/**kwargs at definition time.</td></tr>
+          <tr><td class="kw">lambda</td><td>One-expression anonymous function; sugar for def+return.</td><td class="trap-c">Can't contain statements — only a single expression.</td></tr>
+          <tr><td class="kw">PEP 8</td><td>4-space indent, 79-char lines, snake_case functions, UpperCamelCase classes.</td><td class="trap-c">self is always spelled exactly "self" by convention.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <span class="label">INTERVIEW REMINDERS</span>
+        Be ready to explain <em>why</em> range() is memory-efficient (it's an iterable, not a list), why mutable defaults are dangerous, and the exact rule for when a loop's else clause fires. These three come up disproportionately often.
+      </div>
+    </section>
+
+    <!-- ============================================================
+         INTERVIEW CHECKPOINT
+    ============================================================ -->
+    <div class="section-marker"><span class="line"></span><span class="txt">INTERVIEW CHECKPOINT</span><span class="line"></span></div>
+    <section class="concept" id="c-interview">
+      <div class="concept-head">
+        <span class="concept-id">5 LEVELS</span>
+        <h2>Section 4 Interview Checkpoint</h2>
+      </div>
+      <p class="concept-sub">Every question below draws only from what's covered in Section 4. Reveal each answer honestly, then self-score — the mastery dashboard only counts what you mark, not what you clicked.</p>
+
+      <div class="iv-card" data-iv-id="l1-syntax1">
+        <span class="iv-level l1">LEVEL 1 · RECOGNITION</span>
+        <div class="iv-q">Write the correct syntax to catch every leftover keyword argument in a function into a dictionary named <code>opts</code>.</div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span><code>def f(**opts): ...</code> — double-star before the parameter name, which must come after any <code>*args</code> if both are present.</div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+
+      <div class="iv-card" data-iv-id="l2-predict1">
+        <span class="iv-level l2">LEVEL 2 · PREDICTION</span>
+        <div class="iv-q">
+          <div class="code-block" style="margin-bottom:10px;">
+            <pre class="code">for i in range(3):
+    for j in range(3):
+        if j == 1:
+            break
+        print(i, j)</pre>
+          </div>
+          What is printed, in order?
+        </div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span>
+          (0,0), (1,0), (2,0) — for each i, the inner loop prints j=0, then hits break the instant j becomes 1, before ever printing (i, 1). break only escapes the inner loop, so the outer loop still runs all 3 times.
+        </div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+
+      <div class="iv-card" data-iv-id="l3-concept1">
+        <span class="iv-level l3">LEVEL 3 · CONCEPT</span>
+        <div class="iv-q">Explain WHY <code>range(10)</code> printed on its own shows <code>range(0, 10)</code> instead of the list <code>[0, 1, ..., 9]</code>.</div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span>
+          range() doesn't build the list — it returns an iterable object that computes each number on demand as something iterates over it. This is why it's memory-efficient for huge ranges: range(10**9) takes almost no memory, while list(range(10**9)) would try to materialize a billion integers.
+        </div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+
+      <div class="iv-card" data-iv-id="l4-debug1">
+        <span class="iv-level l4">LEVEL 4 · DEBUGGING</span>
+        <div class="iv-q">
+          Find the bug. This function is meant to collect a running log across separate calls, but instead one caller's data leaks into another's:
+          <div class="code-block" style="margin-top:10px;">
+            <pre class="code">def add_entry(entry, log=[]):
+    log.append(entry)
+    return log
+
+user_a_log = add_entry("login")
+user_b_log = add_entry("logout")
+print(user_b_log)  # BUG: shows ['login', 'logout'], not just ['logout']</pre>
+          </div>
+        </div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span>
+          The mutable default log=[] is the classic trap: it's created once and shared across every call that doesn't supply its own log. Fix: <code>def add_entry(entry, log=None): if log is None: log = []</code> — this gives every call that needs a default a genuinely fresh list.
+        </div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+
+      <div class="iv-card" data-iv-id="l4-debug2">
+        <span class="iv-level l4">LEVEL 4 · DEBUGGING</span>
+        <div class="iv-q">
+          Find the bug — this is supposed to print all users, skipping inactive ones, but crashes or silently skips entries:
+          <div class="code-block" style="margin-top:10px;">
+            <pre class="code">users = {'a': 'active', 'b': 'inactive', 'c': 'active'}
+for user, status in users.items():
+    if status == 'inactive':
+        del users[user]</pre>
+          </div>
+        </div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span>
+          Deleting from a dict while iterating over that same dict raises a RuntimeError (dictionary changed size during iteration). Fix: iterate over <code>users.copy().items()</code>, or build a new dict of only the active users instead of mutating in place.
+        </div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+
+      <div class="iv-card" data-iv-id="l5-trap1">
+        <span class="iv-level l5">LEVEL 5 · INTERVIEW TRAP</span>
+        <div class="iv-q">
+          An interviewer shows you this and asks what it prints. There's a subtle misconception baked into the "obvious" wrong answer — what is it?
+          <div class="code-block" style="margin-top:10px;">
+            <pre class="code">i = 5
+def show(x=i):
+    print(x)
+i = 99
+show()</pre>
+          </div>
+        </div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span>
+          Prints 5, not 99. The misconception is assuming default values are re-evaluated at CALL time, looking up whatever i currently is. In reality, x=i is evaluated once, when the def statement runs — i was 5 at that moment, and that value is locked into the default forever, independent of i's later reassignment.
+        </div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+
+      <div class="iv-card" data-iv-id="l5-trap2">
+        <span class="iv-level l5">LEVEL 5 · INTERVIEW TRAP</span>
+        <div class="iv-q">
+          What does this print, and why do most people guess wrong on the first read?
+          <div class="code-block" style="margin-top:10px;">
+            <pre class="code">for n in range(2, 4):
+    print(n, "start")
+else:
+    print("done")</pre>
+          </div>
+        </div>
+        <button class="iv-reveal-btn">Reveal Answer</button>
+        <div class="iv-answer"><span class="a-label">ANSWER</span>
+          Prints: "2 start", "3 start", "done". Most people guess the else is dead code or a syntax error because there's no break or if anywhere near it. But a loop's else only cares about ONE thing — did a break happen? Since this loop has no break at all, it always finishes "cleanly," so else unconditionally runs.
+        </div>
+        <div class="iv-self"><button class="got-it">✓ I knew this</button><button class="missed-it">✗ I missed this</button></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MASTERY DASHBOARD
+    ============================================================ -->
+    <div class="section-marker"><span class="line"></span><span class="txt">YOUR SCORE</span><span class="line"></span></div>
+    <section class="mastery-section" id="c-mastery">
+      <div class="concept-head" style="margin-bottom:4px;">
+        <h2 style="font-family:var(--mono); font-size:22px;">Section 4 Mastery</h2>
+      </div>
+      <p class="concept-sub" style="margin-bottom:0;">Built from what you actually attempted — predictions, debugging questions, and interview self-scores. Clicking "reveal" alone never counts as learned.</p>
+
+      <div class="mastery-grid">
+        <div class="mastery-card">
+          <div class="m-label"><span>Understanding</span><b id="mUnderstanding">0%</b></div>
+          <div class="mastery-bar"><div class="mastery-bar-fill" id="mUnderstandingBar" style="background:var(--blue);"></div></div>
+        </div>
+        <div class="mastery-card">
+          <div class="m-label"><span>Prediction</span><b id="mPrediction">0%</b></div>
+          <div class="mastery-bar"><div class="mastery-bar-fill" id="mPredictionBar" style="background:var(--yellow);"></div></div>
+        </div>
+        <div class="mastery-card">
+          <div class="m-label"><span>Debugging</span><b id="mDebugging">0%</b></div>
+          <div class="mastery-bar"><div class="mastery-bar-fill" id="mDebuggingBar" style="background:var(--red);"></div></div>
+        </div>
+        <div class="mastery-card">
+          <div class="m-label"><span>Interview</span><b id="mInterview">0%</b></div>
+          <div class="mastery-bar"><div class="mastery-bar-fill" id="mInterviewBar" style="background:var(--purple);"></div></div>
+        </div>
+      </div>
+
+      <div class="mastery-overall">
+        <div class="pct" id="mOverall">0%</div>
+        <div class="lbl">OVERALL SECTION 4 MASTERY</div>
+        <div class="stat-row">
+          <div class="stat-chip"><b id="statAttempted">0</b>attempted</div>
+          <div class="stat-chip"><b id="statCorrect">0</b>correct</div>
+          <div class="stat-chip"><b id="statIncorrect">0</b>incorrect</div>
+          <div class="stat-chip"><b id="statAccuracy">0%</b>accuracy</div>
+        </div>
+      </div>
+
+      <p class="prose-dim" style="margin-top:20px; text-align:center;">
+        Scores update live as you interact. Revisit any concept from the sidebar — mastery only grows through attempts, not re-reading.
+      </p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+const STATE = {
+  attempted: 0,
+  correct: 0,
+  incorrect: 0,
+  predictAnswered: {},   // id -> bool correct
+  ivAnswered: {},        // id -> 'got'|'missed'
+  visitedConcepts: new Set()
+};
+
+function saveState(){ /* in-memory only, per spec: no localStorage in artifacts */ }
+
+function updateMastery(){
+  const totalAttempts = STATE.attempted;
+  const accuracy = totalAttempts > 0 ? Math.round((STATE.correct/totalAttempts)*100) : 0;
+
+  // Understanding: based on concepts visited
+  const totalConcepts = document.querySelectorAll('.concept').length;
+  const understandingPct = totalConcepts > 0 ? Math.round((STATE.visitedConcepts.size/totalConcepts)*100) : 0;
+
+  // Prediction: based on predict challenges
+  const predictEls = Object.keys(STATE.predictAnswered);
+  const predictCorrect = predictEls.filter(k=>STATE.predictAnswered[k]).length;
+  const predictPct = predictEls.length > 0 ? Math.round((predictCorrect/predictEls.length)*100) : 0;
+
+  // Debugging: iv-cards tagged level 4
+  const debugKeys = Object.keys(STATE.ivAnswered).filter(k=>k.startsWith('l4-'));
+  const debugGot = debugKeys.filter(k=>STATE.ivAnswered[k]==='got').length;
+  const debugPct = debugKeys.length > 0 ? Math.round((debugGot/debugKeys.length)*100) : 0;
+
+  // Interview: all iv-cards
+  const ivKeys = Object.keys(STATE.ivAnswered);
+  const ivGot = ivKeys.filter(k=>STATE.ivAnswered[k]==='got').length;
+  const ivPct = ivKeys.length > 0 ? Math.round((ivGot/ivKeys.length)*100) : 0;
+
+  const overall = Math.round((understandingPct*0.25 + predictPct*0.3 + debugPct*0.2 + ivPct*0.25));
+
+  // update mini
+  const miniFill = document.getElementById('miniMasteryFill');
+  const miniPct = document.getElementById('miniMasteryPct');
+  if(miniFill){ miniFill.style.width = overall+'%'; }
+  if(miniPct){ miniPct.textContent = overall+'%'; }
+
+  // update full dashboard if present
+  const dash = {
+    understanding: understandingPct,
+    prediction: predictPct,
+    debugging: debugPct,
+    interview: ivPct,
+    overall: overall
+  };
+  window.dispatchEvent(new CustomEvent('mastery-update', {detail: dash}));
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const target = document.getElementById(btn.dataset.target);
+      if(target){
+        target.scrollIntoView({behavior:'smooth', block:'start'});
+        closeMobileNav();
+      }
+    });
+  });
+
+  // Mobile nav toggle
+  const mobileBtn = document.getElementById('mobileNavBtn');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  mobileBtn.addEventListener('click', ()=>{
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', closeMobileNav);
+  function closeMobileNav(){
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+  }
+  window.closeMobileNav = closeMobileNav;
+
+  // Scrollspy
+  const sections = document.querySelectorAll('.concept, .mastery-section');
+  const topbarCurrent = document.getElementById('topbarCurrent');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const id = entry.target.id;
+        navItems.forEach(b=>b.classList.toggle('active', b.dataset.target===id));
+        const activeBtn = document.querySelector(`.nav-item[data-target="${id}"]`);
+        if(activeBtn) topbarCurrent.textContent = activeBtn.textContent.trim();
+        if(id) {
+          STATE.visitedConcepts.add(id);
+          const dot = document.querySelector(`.nav-dot[data-dot="${id}"]`);
+          if(dot) dot.classList.add('done');
+          updateMastery();
+        }
+      }
+    });
+  }, {rootMargin:'-20% 0px -70% 0px'});
+  sections.forEach(s=>io.observe(s));
+
+  // Mode toggle (learn vs revise) - controls body class for CSS-driven density
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  modeBtns.forEach(b=>{
+    b.addEventListener('click', ()=>{
+      modeBtns.forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      document.body.dataset.mode = b.dataset.mode;
+      if(b.dataset.mode === 'revise'){
+        document.getElementById('c-fastrevision').scrollIntoView({behavior:'smooth'});
+      }
+    });
+  });
+
+  updateMastery();
+  initAllExecViz();
+});
+
+// ============================================================
+// PREDICTION WIDGET LOGIC
+// Usage: buttons have data-correct="true/false" and share data-group
+// ============================================================
+function initPredict(container){
+  const opts = container.querySelectorAll('.predict-opt');
+  const resultBox = container.querySelector('.predict-result');
+  const resetBtn = container.querySelector('.predict-reset');
+  const predictId = container.dataset.predictId;
+
+  opts.forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      if(opt.disabled) return;
+      const isCorrect = opt.dataset.correct === 'true';
+      opts.forEach(o=>{
+        o.disabled = true;
+        if(o.dataset.correct === 'true') o.classList.add('correct');
+      });
+      if(!isCorrect) opt.classList.add('incorrect');
+
+      STATE.attempted++;
+      if(isCorrect){ STATE.correct++; } else { STATE.incorrect++; }
+      STATE.predictAnswered[predictId] = isCorrect;
+
+      resultBox.classList.remove('correct','incorrect');
+      resultBox.classList.add('show', isCorrect ? 'correct' : 'incorrect');
+      const verdict = resultBox.querySelector('.verdict');
+      verdict.textContent = isCorrect ? '✓ Correct' : '✗ Not quite';
+
+      updateMastery();
+    });
+  });
+
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{
+      opts.forEach(o=>{
+        o.disabled = false;
+        o.classList.remove('correct','incorrect');
+      });
+      resultBox.classList.remove('show');
+      if(STATE.predictAnswered[predictId] !== undefined){
+        delete STATE.predictAnswered[predictId];
+      }
+      updateMastery();
+    });
+  }
+}
+document.querySelectorAll('.predict').forEach(initPredict);
+
+// ============================================================
+// INTERVIEW CARD LOGIC (reveal + self-score)
+// ============================================================
+function initIvCard(card){
+  const revealBtn = card.querySelector('.iv-reveal-btn');
+  const answer = card.querySelector('.iv-answer');
+  const selfRow = card.querySelector('.iv-self');
+  const ivId = card.dataset.ivId;
+
+  if(revealBtn){
+    revealBtn.addEventListener('click', ()=>{
+      answer.classList.add('show');
+      if(selfRow) selfRow.classList.add('show');
+      revealBtn.style.display = 'none';
+    });
+  }
+  if(selfRow){
+    const gotBtn = selfRow.querySelector('.got-it');
+    const missedBtn = selfRow.querySelector('.missed-it');
+    gotBtn.addEventListener('click', ()=>{
+      STATE.attempted++; STATE.correct++;
+      STATE.ivAnswered[ivId] = 'got';
+      gotBtn.style.borderColor = 'var(--green)'; gotBtn.style.color='var(--green)';
+      missedBtn.style.opacity = '0.4';
+      updateMastery();
+    });
+    missedBtn.addEventListener('click', ()=>{
+      STATE.attempted++; STATE.incorrect++;
+      STATE.ivAnswered[ivId] = 'missed';
+      missedBtn.style.borderColor = 'var(--red)'; missedBtn.style.color='var(--red)';
+      gotBtn.style.opacity = '0.4';
+      updateMastery();
+    });
+  }
+}
+document.querySelectorAll('.iv-card').forEach(initIvCard);
+
+// ============================================================
+// TOGGLE / SLIDER helper (generic)
+// ============================================================
+document.querySelectorAll('.toggle').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    t.classList.toggle('on');
+    t.setAttribute('aria-pressed', t.classList.contains('on'));
+    const evt = new CustomEvent('toggle-change', {detail:{on:t.classList.contains('on')}});
+    t.dispatchEvent(evt);
+  });
+});
+
+// ============================================================
+// EXECUTION VISUALIZER ENGINE
+// Data-driven step player. Each exec-viz block defines a JSON
+// script of steps via a <script type="application/json"> tag.
+// Each step: {line: N, vars: {name:val,...}, output: "text to append or null",
+//             explain: "explanation text", changedVars:[names]}
+// ============================================================
+function initAllExecViz(){
+  document.querySelectorAll('.exec-viz').forEach(viz=>{
+    const scriptTag = viz.querySelector('script[type="application/json"]');
+    if(!scriptTag) return;
+    const data = JSON.parse(scriptTag.textContent);
+    setupExecViz(viz, data);
+  });
+}
+
+function setupExecViz(viz, data){
+  const lines = viz.querySelectorAll('.exec-line');
+  const varTableBody = viz.querySelector('.var-table tbody');
+  const outBox = viz.querySelector('.exec-out');
+  const explainBox = viz.querySelector('.exec-explain');
+  const progressBar = viz.querySelector('.exec-progress');
+  const btnRun = viz.querySelector('[data-action="run"]');
+  const btnStep = viz.querySelector('[data-action="step"]');
+  const btnReset = viz.querySelector('[data-action="reset"]');
+
+  let stepIdx = -1;
+  let currentVars = {};
+  let outputAccum = '';
+  let runInterval = null;
+
+  // build progress dashes
+  if(progressBar){
+    progressBar.innerHTML = '';
+    data.steps.forEach(()=>{
+      const s = document.createElement('span');
+      progressBar.appendChild(s);
+    });
+  }
+
+  function renderVars(changedKeys){
+    varTableBody.innerHTML = '';
+    const keys = Object.keys(currentVars);
+    if(keys.length === 0){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="2" class="var-empty">(no variables yet)</td>`;
+      varTableBody.appendChild(tr);
+      return;
+    }
+    keys.forEach(k=>{
+      const tr = document.createElement('tr');
+      if(changedKeys && changedKeys.includes(k)) tr.classList.add('changed');
+      tr.innerHTML = `<td class="vname">${k}</td><td class="vval">${currentVars[k]}</td>`;
+      varTableBody.appendChild(tr);
+    });
+  }
+
+  function renderStep(){
+    lines.forEach(l=>{
+      l.classList.remove('current');
+    });
+
+    if(stepIdx < 0){
+      outputAccum = '';
+      currentVars = {};
+      outBox.textContent = '';
+      explainBox.textContent = 'Press Run or Step to begin execution.';
+      renderVars();
+      if(progressBar) progressBar.querySelectorAll('span').forEach(s=>s.classList.remove('done'));
+      lines.forEach(l=>l.classList.remove('executed'));
+      updateBtnStates();
+      return;
+    }
+
+    const step = data.steps[stepIdx];
+
+    // mark executed lines
+    lines.forEach((l,i)=>{
+      const lineNum = parseInt(l.dataset.line, 10);
+      l.classList.toggle('executed', false);
+    });
+    for(let i=0;i<=stepIdx;i++){
+      const ln = data.steps[i].line;
+      const el = viz.querySelector(`.exec-line[data-line="${ln}"]`);
+    }
+
+    const activeLineEl = viz.querySelector(`.exec-line[data-line="${step.line}"]`);
+    if(activeLineEl) activeLineEl.classList.add('current');
+
+    currentVars = Object.assign({}, currentVars, step.vars || {});
+    renderVars(step.changedVars || []);
+
+    if(step.output){
+      outputAccum += (outputAccum ? '\n' : '') + step.output;
+    }
+    outBox.textContent = outputAccum || '(no output yet)';
+
+    explainBox.textContent = step.explain || '';
+
+    if(progressBar){
+      const spans = progressBar.querySelectorAll('span');
+      spans.forEach((s,i)=> s.classList.toggle('done', i<=stepIdx));
+    }
+
+    updateBtnStates();
+  }
+
+  function updateBtnStates(){
+    if(btnStep) btnStep.disabled = stepIdx >= data.steps.length - 1;
+    if(btnRun) btnRun.disabled = stepIdx >= data.steps.length - 1;
+  }
+
+  if(btnStep){
+    btnStep.addEventListener('click', ()=>{
+      if(stepIdx < data.steps.length - 1){
+        stepIdx++;
+        renderStep();
+      }
+    });
+  }
+  if(btnRun){
+    btnRun.addEventListener('click', ()=>{
+      clearInterval(runInterval);
+      runInterval = setInterval(()=>{
+        if(stepIdx < data.steps.length - 1){
+          stepIdx++;
+          renderStep();
+        } else {
+          clearInterval(runInterval);
+        }
+      }, 550);
+    });
+  }
+  if(btnReset){
+    btnReset.addEventListener('click', ()=>{
+      clearInterval(runInterval);
+      stepIdx = -1;
+      renderStep();
+    });
+  }
+
+  renderStep();
+}
+
+// ============================================================
+// RANGE() SLIDER WIDGET
+// ============================================================
+(function initRangeWidget(){
+  const startEl = document.getElementById('rangeStart');
+  const stopEl = document.getElementById('rangeStop');
+  const stepEl = document.getElementById('rangeStep');
+  if(!startEl) return;
+  const startVal = document.getElementById('rangeStartVal');
+  const stopVal = document.getElementById('rangeStopVal');
+  const stepVal = document.getElementById('rangeStepVal');
+  const output = document.getElementById('rangeOutput');
+
+  function computeRange(start, stop, step){
+    const result = [];
+    if(step === 0) return null; // invalid
+    if(step > 0){
+      for(let i=start; i<stop; i+=step) result.push(i);
+    } else {
+      for(let i=start; i>stop; i+=step) result.push(i);
+    }
+    return result;
+  }
+
+  function render(){
+    const start = parseInt(startEl.value,10);
+    const stop = parseInt(stopEl.value,10);
+    const step = parseInt(stepEl.value,10);
+    startVal.textContent = start;
+    stopVal.textContent = stop;
+    stepVal.textContent = step;
+
+    if(step === 0){
+      output.innerHTML = `<span class="err">ValueError: range() arg 3 must not be zero</span>`;
+      return;
+    }
+    const seq = computeRange(start, stop, step);
+    if(seq.length === 0){
+      output.innerHTML = `<span class="placeholder">[]  (empty — step direction never reaches stop)</span>`;
+    } else if(seq.length > 40){
+      output.textContent = `[${seq.slice(0,20).join(', ')}, ... ] (${seq.length} items — too many to show all)`;
+    } else {
+      output.textContent = `[${seq.join(', ')}]`;
+    }
+  }
+
+  [startEl, stopEl, stepEl].forEach(el=> el.addEventListener('input', render));
+  render();
+})();
+
+// ============================================================
+// MUTABLE DEFAULT ARGUMENT WIDGET
+// ============================================================
+(function initMutableDefaultWidget(){
+  const toggle = document.getElementById('mutableToggle');
+  if(!toggle) return;
+  const label = document.getElementById('mutableToggleLabel');
+  const output = document.getElementById('mutableOutput');
+  const btn1 = document.getElementById('callF1');
+  const btn2 = document.getElementById('callF2');
+  const btn3 = document.getElementById('callF3');
+  const resetBtn = document.getElementById('callFReset');
+
+  let sharedList = []; // simulates the mutable default persisting across calls
+  let log = [];
+
+  function callF(a){
+    const usingMutable = !toggle.classList.contains('on');
+    let resultList;
+    if(usingMutable){
+      sharedList.push(a);
+      resultList = sharedList;
+    } else {
+      resultList = [a]; // safe pattern: always fresh
+    }
+    log.push(`f(${a}) → [${resultList.join(', ')}]`);
+    renderOutput();
+  }
+
+  function renderOutput(){
+    if(log.length === 0){
+      output.innerHTML = `<span class="placeholder">Click f(1), f(2), f(3) to see the calls happen...</span>`;
+      return;
+    }
+    output.innerHTML = log.map(l=>`<span class="prompt">&gt;&gt;&gt; </span>${l}`).join('\n');
+  }
+
+  toggle.addEventListener('click', ()=>{
+    const isSafe = toggle.classList.contains('on');
+    label.innerHTML = isSafe
+      ? 'Using <code>L=None</code> then <code>if L is None: L=[]</code> (safe pattern)'
+      : 'Using <code>L=[]</code> (shared mutable default)';
+    log = [];
+    sharedList = [];
+    renderOutput();
+  });
+
+  btn1.addEventListener('click', ()=>callF(1));
+  btn2.addEventListener('click', ()=>callF(2));
+  btn3.addEventListener('click', ()=>callF(3));
+  resetBtn.addEventListener('click', ()=>{
+    log = [];
+    sharedList = [];
+    renderOutput();
+  });
+
+  renderOutput();
+})();
+
+// ============================================================
+// KEYWORD ARGUMENTS QUIZ LIST (valid / invalid calls)
+// ============================================================
+(function initKwargsQuiz(){
+  const container = document.getElementById('kwargsQuizList');
+  if(!container) return;
+  const calls = [
+    {code: "parrot(1000)", valid: true, reason: "1 positional argument fills voltage. All others use their defaults."},
+    {code: "parrot(voltage=1000)", valid: true, reason: "voltage supplied by keyword — perfectly fine."},
+    {code: "parrot()", valid: false, reason: "voltage is required and has no default — TypeError: missing required argument."},
+    {code: "parrot(voltage=5.0, 'dead')", valid: false, reason: "SyntaxError: a positional argument can't follow a keyword argument in a call."},
+    {code: "parrot(110, voltage=220)", valid: false, reason: "TypeError: voltage already filled positionally, then filled again by keyword."},
+    {code: "parrot(actor='John Cleese')", valid: false, reason: "TypeError: 'actor' isn't a parameter name in this function's signature — and voltage is still missing."}
+  ];
+
+  calls.forEach((c, i)=>{
+    const row = document.createElement('button');
+    row.className = 'predict-opt';
+    row.style.justifyContent = 'space-between';
+    row.dataset.state = 'unanswered';
+    row.innerHTML = `<span>${c.code}</span><span class="letter" style="width:auto; padding:0 8px;">check</span>`;
+    row.addEventListener('click', ()=>{
+      if(row.dataset.state !== 'unanswered') return;
+      row.dataset.state = 'answered';
+      row.classList.add(c.valid ? 'correct' : 'incorrect');
+      row.querySelector('.letter').textContent = c.valid ? '✓ VALID' : '✗ ERROR';
+      const explain = document.createElement('div');
+      explain.style.cssText = 'font-size:12.5px; color:var(--text-dim); padding:8px 4px 2px; font-family:var(--sans);';
+      explain.textContent = c.reason;
+      row.after(explain);
+      STATE.attempted++;
+      STATE.correct++; // exploratory quiz, count engagement as correct
+      updateMastery();
+    });
+    container.appendChild(row);
+  });
+})();
+
+// ============================================================
+// SPECIAL PARAMETERS CALL TESTER
+// ============================================================
+(function initSpecialParamsTester(){
+  const buttons = document.querySelectorAll('[data-call]');
+  const output = document.getElementById('specialParamsOutput');
+  if(!output) return;
+
+  const results = {
+    "combined_example(1, 2, 3)": {ok:false, msg:"TypeError: combined_example() takes 2 positional arguments but 3 were given.\n→ kwd_only sits after '*', so it can ONLY be passed by keyword — a 3rd positional value has nowhere valid to go."},
+    "combined_example(1, 2, kwd_only=3)": {ok:true, msg:"1 2 3\n→ pos_only=1 (positional), standard=2 (positional), kwd_only=3 (keyword). Valid."},
+    "combined_example(1, standard=2, kwd_only=3)": {ok:true, msg:"1 2 3\n→ pos_only=1 (positional — required, since it's before '/'), standard passed by keyword (allowed, it's in the middle zone), kwd_only by keyword. Valid."},
+    "combined_example(pos_only=1, standard=2, kwd_only=3)": {ok:false, msg:"TypeError: combined_example() got some positional-only arguments passed as keyword arguments: 'pos_only'\n→ pos_only sits before '/', so its name cannot be used at the call site at all."}
+  };
+
+  buttons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const call = btn.dataset.call;
+      const res = results[call];
+      if(!res) return;
+      output.innerHTML = `<span class="prompt">&gt;&gt;&gt; ${call}</span>\n` +
+        (res.ok ? res.msg : `<span class="err">${res.msg}</span>`);
+    });
+  });
+})();
+
+// ============================================================
+// LAMBDA SORT TOGGLE
+// ============================================================
+(function initLambdaSort(){
+  const toggle = document.getElementById('lambdaSortToggle');
+  if(!toggle) return;
+  const fieldLabel = document.getElementById('lambdaSortField');
+  const output = document.getElementById('lambdaSortOutput');
+  const pairs = [[1,'one'],[2,'two'],[3,'three'],[4,'four']];
+
+  function render(){
+    const byWord = toggle.classList.contains('on');
+    let sorted;
+    if(byWord){
+      sorted = [...pairs].sort((a,b)=> a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+      fieldLabel.textContent = 'pair[0] (the number)';
+    } else {
+      sorted = [...pairs].sort((a,b)=> a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+      fieldLabel.textContent = 'pair[1] (the word)';
+    }
+    // default state (off) = sort by word, matching source example
+    const display = byWord ? [...pairs].sort((a,b)=>a[0]-b[0]) : sorted;
+    output.textContent = '[' + display.map(p=>`(${p[0]}, '${p[1]}')`).join(', ') + ']';
+  }
+  toggle.addEventListener('click', render);
+  render();
+})();
+
+// ============================================================
+// MASTERY DASHBOARD RENDERER
+// ============================================================
+window.addEventListener('mastery-update', (e)=>{
+  const d = e.detail;
+  const setBar = (idBar, idPct, val)=>{
+    const bar = document.getElementById(idBar);
+    const pct = document.getElementById(idPct);
+    if(bar) bar.style.width = val + '%';
+    if(pct) pct.textContent = val + '%';
+  };
+  setBar('mUnderstandingBar','mUnderstanding', d.understanding);
+  setBar('mPredictionBar','mPrediction', d.prediction);
+  setBar('mDebuggingBar','mDebugging', d.debugging);
+  setBar('mInterviewBar','mInterview', d.interview);
+
+  const overallEl = document.getElementById('mOverall');
+  if(overallEl) overallEl.textContent = d.overall + '%';
+
+  const statAttempted = document.getElementById('statAttempted');
+  const statCorrect = document.getElementById('statCorrect');
+  const statIncorrect = document.getElementById('statIncorrect');
+  const statAccuracy = document.getElementById('statAccuracy');
+  if(statAttempted) statAttempted.textContent = STATE.attempted;
+  if(statCorrect) statCorrect.textContent = STATE.correct;
+  if(statIncorrect) statIncorrect.textContent = STATE.incorrect;
+  if(statAccuracy) statAccuracy.textContent = (STATE.attempted>0 ? Math.round((STATE.correct/STATE.attempted)*100) : 0) + '%';
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Origins, Fundamentals & The Interpreter — Revision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root{
+    --bg:#191926;
+    --bg-panel:#22223a;
+    --bg-panel2:#272746;
+    --bg-chip:#2f2f4a;
+    --blue:#5b9fd6;
+    --blue-dim:#3a6a8f;
+    --yellow:#FFD43B;
+    --text:#eaeaf4;
+    --text-dim:#9797b8;
+    --green:#7ee787;
+    --red:#ff8080;
+    --purple:#c792ea;
+    --border:#3a3a5c;
+    --radius:12px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, #24244a 0%, transparent 45%),
+      radial-gradient(circle at 85% 10%, #1f3a4a 0%, transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    line-height:1.6;
+    padding-bottom:100px;
+  }
+  .wrap{max-width:900px; margin:0 auto; padding:0 20px;}
+
+  nav{
+    position:sticky; top:0; z-index:50;
+    background:#191926ee;
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+    padding:12px 20px;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+  nav a{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    color:var(--text-dim);
+    text-decoration:none;
+    margin-right:18px;
+    padding:6px 10px;
+    border-radius:6px;
+    transition:.15s;
+  }
+  nav a:hover{color:var(--yellow); background:var(--bg-chip);}
+
+  header{padding:44px 0 20px;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--yellow);
+    font-size:12.5px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  h1{
+    font-family:'JetBrains Mono',monospace;
+    font-size:clamp(26px,6vw,40px);
+    font-weight:800;
+    letter-spacing:-0.5px;
+  }
+  h1 span{color:var(--blue);}
+  .sub{color:var(--text-dim); margin-top:10px; font-size:15px; max-width:62ch;}
+
+  .section{padding-top:70px; margin-top:-70px;}
+  h2{
+    font-family:'JetBrains Mono',monospace;
+    font-size:23px;
+    color:var(--text);
+    margin:56px 0 6px;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  h2 .num{color:var(--blue); font-weight:800;}
+  .lede{color:var(--text-dim); font-size:14.5px; margin-bottom:22px; max-width:65ch;}
+
+  h3{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    color:var(--blue);
+    margin:22px 0 10px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px;
+    margin-bottom:16px;
+  }
+  .panel p{font-size:14.5px; margin-bottom:10px;}
+  .panel p:last-child{margin-bottom:0;}
+  .panel ul{padding-left:20px; font-size:14.5px;}
+  .panel li{margin-bottom:6px;}
+  code{
+    font-family:'JetBrains Mono',monospace;
+    background:#12121f;
+    padding:1.5px 6px;
+    border-radius:4px;
+    font-size:13px;
+    color:var(--green);
+  }
+
+  pre{
+    background:#14141f !important;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 18px !important;
+    margin:12px 0;
+    overflow-x:auto;
+    font-size:13.5px;
+  }
+  pre code.hljs{background:transparent !important; padding:0 !important; color:inherit;}
+  .code-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin-bottom:-4px;
+  }
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{
+    background:var(--bg-chip);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    padding:6px 12px;
+    border-radius:6px;
+  }
+
+  .widget{
+    background:var(--bg-panel2);
+    border:1px solid var(--blue-dim);
+    border-radius:var(--radius);
+    padding:22px;
+    margin:18px 0;
+  }
+  .widget-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--yellow);
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    margin-bottom:14px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .widget-label::before{content:"▸";}
+
+  .btn-row{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
+  button.op{
+    font-family:'JetBrains Mono',monospace;
+    background:var(--bg-chip);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13.5px;
+    transition:.15s;
+  }
+  button.op:hover{border-color:var(--blue);}
+  button.op.active{background:var(--blue); color:#0e1620; border-color:var(--blue); font-weight:700;}
+  button.action{
+    font-family:'JetBrains Mono',monospace;
+    background:var(--yellow);
+    color:#191926;
+    border:none;
+    padding:9px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:700;
+    font-size:13.5px;
+  }
+  button.action:hover{filter:brightness(1.08);}
+  button.action.secondary{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+  }
+  button.action:disabled{opacity:.35; cursor:not-allowed;}
+
+  .result-line{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14.5px;
+    margin-top:14px;
+    padding:12px 14px;
+    background:#12121f;
+    border-radius:8px;
+    border-left:3px solid var(--green);
+    color:var(--green);
+    word-break:break-word;
+  }
+  .explain{font-size:13px; color:var(--text-dim); margin-top:8px;}
+
+  /* compare cards */
+  .compare-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px;}
+  @media (max-width:680px){ .compare-grid{grid-template-columns:1fr;} }
+  .compare-card{
+    background:#12121f;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+  }
+  .compare-card.highlight{border-color:var(--blue); box-shadow:0 0 0 1px var(--blue-dim) inset;}
+  .compare-card h4{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13.5px;
+    color:var(--yellow);
+    margin-bottom:10px;
+  }
+  .compare-card ul{padding-left:16px; font-size:13px; color:var(--text-dim);}
+  .compare-card li{margin-bottom:6px;}
+
+  /* terminal */
+  .terminal{
+    background:#0d0d16;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.8px;
+    margin-top:12px;
+    color:var(--text-dim);
+    min-height:100px;
+    white-space:pre-wrap;
+  }
+  .terminal .prompt{color:var(--blue);}
+  .terminal .cont{color:var(--purple);}
+  .terminal .out{color:var(--green);}
+
+  select{
+    font-family:'JetBrains Mono',monospace;
+    background:#14141f;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:13.5px;
+  }
+
+  /* Q&A */
+  .qa{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    margin-bottom:10px;
+    overflow:hidden;
+  }
+  .qa-q{
+    width:100%; text-align:left; background:none; border:none;
+    color:var(--text); font-family:'Inter',sans-serif;
+    font-size:14.5px; font-weight:600;
+    padding:16px 18px; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+  }
+  .qa-q:hover{background:#2c2c46;}
+  .qa-tag{
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--bg); background:var(--yellow);
+    padding:2px 7px; border-radius:10px; white-space:nowrap; flex-shrink:0;
+  }
+  .qa-a{
+    max-height:0; overflow:hidden;
+    transition:max-height .25s ease, padding .25s ease;
+    padding:0 18px; font-size:14px; color:var(--text-dim);
+  }
+  .qa.open .qa-a{max-height:300px; padding:0 18px 16px; border-top:1px solid var(--border);}
+  .qa.open .chevron{transform:rotate(180deg);}
+  .chevron{transition:transform .2s ease; color:var(--blue); flex-shrink:0;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:'JetBrains Mono',monospace; color:var(--blue); font-size:11.5px; text-transform:uppercase; letter-spacing:1px;}
+  td code{background:none; padding:0; color:var(--yellow);}
+
+  .score{text-align:center; margin-top:14px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); font-size:13px;}
+  #scoreCount{color:var(--yellow); font-weight:700;}
+
+  footer{margin-top:60px; text-align:center; color:var(--text-dim); font-size:12px; font-family:'JetBrains Mono',monospace;}
+
+  /* ---------- QUICK SCAN ---------- */
+  .scan-panel{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    margin:24px 0 8px;
+  }
+  .scan-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:1.5px;
+    margin-bottom:10px;
+  }
+  .chip-nav{cursor:pointer; background:var(--bg-chip); border:1px solid var(--border); transition:.15s;}
+  .chip-nav:hover{border-color:var(--yellow); color:var(--yellow); transform:translateY(-1px);}
+
+  /* ---------- PIPELINE DIAGRAM ---------- */
+  .pipeline{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:0; margin:16px 0;}
+  .pipe-step{
+    font-family:'JetBrains Mono',monospace;
+    background:#12121f;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 16px;
+    text-align:center;
+    font-size:12.5px;
+    min-width:100px;
+  }
+  .pipe-step .t{color:var(--yellow); font-weight:700; display:block; margin-bottom:2px;}
+  .pipe-step .d{color:var(--text-dim); font-size:11px;}
+  .pipe-arrow{color:var(--blue); font-size:18px; padding:0 10px; flex-shrink:0;}
+  @media (max-width:600px){
+    .pipeline{flex-direction:column;}
+    .pipe-arrow{transform:rotate(90deg); padding:4px 0;}
+  }
+  .pipeline.compact .pipe-step{min-width:76px; padding:9px 10px; font-size:11.5px;}
+  .pipeline-row{display:flex; flex-direction:column; align-items:center; gap:0;}
+
+  .mode-toggle{display:flex; gap:8px; margin-bottom:14px;}
+  .pipe-wrap{
+    background:#12121f;
+    border:1px dashed var(--blue-dim);
+    border-radius:10px;
+    padding:16px;
+    margin-top:6px;
+  }
+
+  /* ---------- SCENARIO PICKER ---------- */
+  .scenario-box{
+    background:#12121f;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+    margin-top:14px;
+  }
+  .scenario-task{font-size:14px; color:var(--text); margin-bottom:10px;}
+  .scenario-feedback{
+    display:none;
+    margin-top:12px;
+    padding:12px 14px;
+    border-radius:8px;
+    font-size:13.5px;
+    border-left:3px solid var(--border);
+  }
+  .scenario-feedback.show{display:block;}
+  .scenario-feedback.good{border-left-color:var(--green); background:#12241a; color:var(--green);}
+  .scenario-feedback.ok{border-left-color:var(--yellow); background:#241f12; color:var(--yellow);}
+
+  /* ---------- FEEDBACK LOOP COMPARE ---------- */
+  .loop-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;}
+  @media (max-width:600px){ .loop-grid{grid-template-columns:1fr;} }
+  .loop-col{background:#12121f; border:1px solid var(--border); border-radius:10px; padding:14px;}
+  .loop-col h4{font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;}
+  .loop-col.py h4{color:var(--green);}
+  .loop-step{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px;
+    padding:6px 10px; margin-bottom:4px; border-radius:6px;
+    background:var(--bg-chip); opacity:.3; transition:opacity .25s, background .25s;
+  }
+  .loop-step.lit{opacity:1;}
+  .loop-col.compiled .loop-step.lit{background:#3a2424; color:var(--red);}
+  .loop-col.py .loop-step.lit{background:#1f3a2a; color:var(--green);}
+
+  /* ---------- LEGEND ---------- */
+  .legend{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
+  .legend-row{
+    display:flex; gap:12px; align-items:baseline;
+    font-family:'JetBrains Mono',monospace; font-size:13px;
+    background:#12121f; border-radius:8px; padding:10px 12px;
+  }
+  .legend-row .sym{color:var(--blue); font-weight:800; min-width:36px;}
+  .legend-row.sec .sym{color:var(--purple);}
+  .legend-row .desc{color:var(--text-dim); font-size:12.5px;}
+
+  /* ---------- QUIZ ---------- */
+  .quiz-card{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px;
+    margin-bottom:14px;
+  }
+  .quiz-q{font-size:14.5px; font-weight:600; margin-bottom:4px;}
+  .quiz-code{margin:10px 0;}
+  .quiz-choices{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
+  .quiz-choice{
+    font-family:'JetBrains Mono',monospace;
+    text-align:left;
+    background:#12121f;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13.5px;
+    transition:.15s;
+  }
+  .quiz-choice:hover{border-color:var(--blue);}
+  .quiz-choice.correct{border-color:var(--green); background:#12241a; color:var(--green);}
+  .quiz-choice.incorrect{border-color:var(--red); background:#241414; color:var(--red);}
+  .quiz-choice:disabled{cursor:default;}
+  .quiz-feedback{
+    margin-top:12px; padding:12px 14px; border-radius:8px;
+    font-size:13.5px; display:none; border-left:3px solid var(--border);
+  }
+  .quiz-feedback.show{display:block;}
+  .quiz-feedback.correct{border-left-color:var(--green); background:#12241a; color:var(--green);}
+  .quiz-feedback.incorrect{border-left-color:var(--red); background:#241414; color:var(--red);}
+  .quiz-verdict{font-weight:800; font-family:'JetBrains Mono',monospace; margin-bottom:4px; display:block;}
+
+  .quiz-score-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim);
+    margin:6px 0 18px;
+  }
+  #quizAccuracy{color:var(--yellow); font-weight:700;}
+
+  /* ---------- INTERVIEW TRAPS ---------- */
+  .trap-card{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-left:3px solid var(--red);
+    border-radius:10px;
+    padding:16px 18px;
+    margin-bottom:10px;
+  }
+  .trap-card .trap-q{font-size:14px; font-weight:600; margin-bottom:6px; color:var(--text);}
+  .trap-card .trap-a{font-size:13.5px; color:var(--text-dim);}
+
+  /* ---------- W5 GRID (who/when/where/why/how) ---------- */
+  .w5-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px;}
+  @media (max-width:680px){ .w5-grid{grid-template-columns:1fr;} }
+  .w5-card{background:#12121f; border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .w5-card .w5-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--yellow); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px;}
+  .w5-card p{font-size:13.5px; color:var(--text-dim); margin-bottom:0;}
+  .w5-card strong{color:var(--text);}
+
+  /* ---------- TIMELINE ---------- */
+  .timeline-track{display:flex; overflow-x:auto; gap:8px; padding-bottom:10px; margin-top:16px; scrollbar-width:thin;}
+  .timeline-dot{
+    flex:0 0 auto;
+    font-family:'JetBrains Mono',monospace;
+    background:var(--bg-chip);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    padding:10px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:12.5px;
+    text-align:center;
+    transition:.15s;
+    min-width:78px;
+  }
+  .timeline-dot .yr{display:block; font-weight:800; color:var(--text);}
+  .timeline-dot:hover{border-color:var(--blue);}
+  .timeline-dot.active{background:var(--blue); border-color:var(--blue); color:#0e1620;}
+  .timeline-dot.active .yr{color:#0e1620;}
+  .timeline-detail{
+    background:#12121f;
+    border:1px dashed var(--blue-dim);
+    border-radius:10px;
+    padding:18px;
+    margin-top:4px;
+  }
+  .timeline-detail .td-title{font-family:'JetBrains Mono',monospace; color:var(--yellow); font-size:14px; font-weight:700; margin-bottom:8px;}
+  .timeline-detail p{font-size:13.5px; color:var(--text-dim);}
+
+  /* ---------- FUNDAMENTALS GRID ---------- */
+  .fund-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:14px;}
+  @media (max-width:680px){ .fund-grid{grid-template-columns:1fr;} }
+  .fund-card{background:#12121f; border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .fund-card h4{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--blue); margin-bottom:8px;}
+  .fund-card p{font-size:13px; color:var(--text-dim); margin-bottom:8px;}
+  .fund-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .fund-chip{font-family:'JetBrains Mono',monospace; font-size:11.5px; background:var(--bg-chip); border:1px solid var(--border); padding:4px 9px; border-radius:6px; color:var(--green);}
+
+  /* ---------- APPLICATIONS GRID ---------- */
+  .app-filter{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0;}
+  .app-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px;}
+  @media (max-width:680px){ .app-grid{grid-template-columns:1fr;} }
+  .app-card{background:#12121f; border:1px solid var(--border); border-radius:10px; padding:16px; transition:.2s; display:none;}
+  .app-card.show{display:block;}
+  .app-card .app-icon{font-size:20px; margin-bottom:6px;}
+  .app-card h4{font-family:'JetBrains Mono',monospace; font-size:13.5px; color:var(--text); margin-bottom:6px;}
+  .app-card p{font-size:13px; color:var(--text-dim); margin-bottom:8px;}
+  .app-card .app-tools{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--purple);}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#history">01 Origins</a>
+  <a href="#why">02 Why Python</a>
+  <a href="#fundamentals">03 Fundamentals</a>
+  <a href="#interactive">04 Interactive Mode</a>
+  <a href="#running">05 Running & Args</a>
+  <a href="#applications">06 Applications</a>
+  <a href="#check">07 Check Yourself</a>
+  <a href="#recap">08 Recap</a>
+</nav>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">python revision · origins · fundamentals · the interpreter</div>
+    <h1>Where Python Came From, <span>& How It Runs</span></h1>
+    <p class="sub">The conceptual groundwork before any syntax: who built Python and why, what problem it solves, the core building blocks, where it's actually used today, and how the interpreter runs your code. Installation steps skipped on purpose — that's a one-time setup task, not something worth revising.</p>
+  </header>
+
+  <!-- ================= QUICK SCAN ================= -->
+  <div class="scan-panel">
+    <div class="scan-title">Section 1–2 Quick Scan — tap a keyword to jump there</div>
+    <div class="chips" id="quickScan">
+      <span class="chip chip-nav" data-jump="history">guido van rossum</span>
+      <span class="chip chip-nav" data-jump="history">CWI, 1989</span>
+      <span class="chip chip-nav" data-jump="timeline">version timeline</span>
+      <span class="chip chip-nav" data-jump="why">why python</span>
+      <span class="chip chip-nav" data-jump="why">scripting</span>
+      <span class="chip chip-nav" data-jump="feedback-loop">interpreted</span>
+      <span class="chip chip-nav" data-jump="why">high-level types</span>
+      <span class="chip chip-nav" data-jump="why">indentation</span>
+      <span class="chip chip-nav" data-jump="fundamentals">data types</span>
+      <span class="chip chip-nav" data-jump="fundamentals">dynamic typing</span>
+      <span class="chip chip-nav" data-jump="mental-model">mental model</span>
+      <span class="chip chip-nav" data-jump="interactive">interactive mode</span>
+      <span class="chip chip-nav" data-jump="prompts"><code style="background:none;padding:0;color:inherit;">&gt;&gt;&gt;</code></span>
+      <span class="chip chip-nav" data-jump="prompts"><code style="background:none;padding:0;color:inherit;">...</code></span>
+      <span class="chip chip-nav" data-jump="argv-pipeline">sys.argv</span>
+      <span class="chip chip-nav" data-jump="running"><code style="background:none;padding:0;color:inherit;">-c</code></span>
+      <span class="chip chip-nav" data-jump="running"><code style="background:none;padding:0;color:inherit;">-m</code></span>
+      <span class="chip chip-nav" data-jump="running"><code style="background:none;padding:0;color:inherit;">-i</code></span>
+      <span class="chip chip-nav" data-jump="encoding">UTF-8</span>
+      <span class="chip chip-nav" data-jump="encoding">shebang</span>
+      <span class="chip chip-nav" data-jump="encoding">encoding declaration</span>
+      <span class="chip chip-nav" data-jump="applications">real-world uses</span>
+    </div>
+  </div>
+
+  <!-- ================= SECTION 0: HISTORY / ORIGINS ================= -->
+  <div class="section" id="history">
+  <h2><span class="num">01</span> Origins — Who, When & How</h2>
+  <p class="lede">Before "why Python is useful," it helps to know where it actually came from — this is the part most tutorials skip entirely.</p>
+
+  <div class="w5-grid">
+    <div class="w5-card">
+      <div class="w5-tag">Who</div>
+      <p><strong>Guido van Rossum</strong>, a Dutch programmer working at <strong>CWI</strong> (Centrum Wiskunde &amp; Informatica), the national research institute for mathematics and computer science in Amsterdam.</p>
+    </div>
+    <div class="w5-card">
+      <div class="w5-tag">When</div>
+      <p>Started as a personal project over the <strong>Christmas holiday of December 1989</strong>. First public release was <strong>Python 0.9.0 in February 1991</strong>.</p>
+    </div>
+    <div class="w5-card">
+      <div class="w5-tag">Where / Why</div>
+      <p>Built at CWI as a successor to the <strong>ABC language</strong> (which Guido had also worked on) — Guido wanted ABC's readability without its extensibility problems.</p>
+    </div>
+    <div class="w5-card">
+      <div class="w5-tag">How</div>
+      <p>Designed hobby-first: no committee, no spec-first process. Guido combined ABC's clean syntax with exception handling and interfacing to the <strong>Amoeba</strong> distributed OS his team used — then kept it as his day-to-day scripting tool, which is why it stayed pragmatic rather than academic.</p>
+    </div>
+    <div class="w5-card">
+      <div class="w5-tag">Governance</div>
+      <p>Guido was Python's <strong>"Benevolent Dictator For Life" (BDFL)</strong> until he voluntarily stepped back from that role in <strong>2018</strong>. Python is now governed by an elected <strong>Steering Council</strong> and stewarded by the <strong>Python Software Foundation (PSF)</strong>, a nonprofit.</p>
+    </div>
+    <div class="w5-card">
+      <div class="w5-tag">Direct ancestor</div>
+      <p><strong>ABC</strong> gave Python indentation-based blocks and a taste for readability. Python also borrowed ideas from <strong>Modula-3</strong> (modules) and drew on <strong>C</strong> for its extension mechanism.</p>
+    </div>
+  </div>
+
+  <div class="widget" id="timeline">
+    <div class="widget-label">Version timeline — tap a year</div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:4px;">Each release is a checkpoint in <em>how</em> Python got to where it is — click through them in order.</p>
+    <div class="timeline-track" id="timelineTrack"></div>
+    <div class="timeline-detail" id="timelineDetail"></div>
+  </div>
+
+  <div class="panel">
+    <h3>A common interview trap</h3>
+    <p>"Python was created by a committee" or "Python is named after the snake" — both wrong. It's a <strong>single designer's project</strong> (Guido, solo at first) named after <strong>Monty Python's Flying Circus</strong>, not the reptile — the snake logo came later, purely as branding.</p>
+  </div>
+  </div>
+
+  <!-- ================= SECTION 1 ================= -->
+  <div class="section" id="why">
+  <h2><span class="num">02</span> Why Python Exists</h2>
+  <p class="lede">Section 1 ("Whetting Your Appetite") isn't teaching syntax — it's making the case for <em>why</em> Python is the right tool for a certain kind of problem.</p>
+
+  <div class="chips">
+    <span class="chip">automation / scripting</span>
+    <span class="chip">interpreted language</span>
+    <span class="chip">no compile step</span>
+    <span class="chip">high-level built-in types</span>
+    <span class="chip">indentation-based blocks</span>
+    <span class="chip">no declarations needed</span>
+    <span class="chip">extensible via C</span>
+    <span class="chip">Monty Python, not snakes</span>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <h3>What problem is it actually for?</h3>
+    <p>Automating repetitive tasks (search-and-replace across files, renaming/rearranging files), quick prototypes (a small database, a GUI, a simple game), or as a fast test/extension language when the usual compile-test-recompile cycle of C/C++/Java is too slow.</p>
+  </div>
+
+  <div class="widget">
+    <div class="widget-label">Python vs the alternatives</div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:4px;">The tutorial's actual argument — why not just use these instead?</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Shell script / batch file</h4>
+        <ul>
+          <li>Great at moving files, editing text</li>
+          <li>Falls apart for GUIs or games</li>
+          <li>Little structure for large programs</li>
+        </ul>
+      </div>
+      <div class="compare-card">
+        <h4>C / C++ / Java</h4>
+        <ul>
+          <li>Fast, powerful, general-purpose</li>
+          <li>Slow write → compile → test loop</li>
+          <li>You declare every variable/type</li>
+        </ul>
+      </div>
+      <div class="compare-card highlight">
+        <h4>Python</h4>
+        <ul>
+          <li>Real language, more structure than shell</li>
+          <li>No compile step — run instantly</li>
+          <li>Built-in high-level types (lists, dicts)</li>
+          <li>More error-checking than C</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="widget">
+    <div class="widget-label">Which tool would you choose?</div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:10px;">Pick a tool for each task, using only the reasoning from Section 1 — not general opinions.</p>
+
+    <div class="scenario-box">
+      <p class="scenario-task">Task 1: <strong>Rename 500 photo files and rearrange them into folders using some non-trivial logic.</strong></p>
+      <div class="btn-row" id="scenario1">
+        <button class="op" data-scenario="1" data-choice="shell">Shell</button>
+        <button class="op" data-scenario="1" data-choice="c">C / C++ / Java</button>
+        <button class="op" data-scenario="1" data-choice="python">Python</button>
+      </div>
+      <div class="scenario-feedback" id="scenario1-feedback"></div>
+    </div>
+
+    <div class="scenario-box">
+      <p class="scenario-task">Task 2: <strong>Write a quick, throw-away test suite for a C/C++ library, without a slow rebuild each time.</strong></p>
+      <div class="btn-row" id="scenario2">
+        <button class="op" data-scenario="2" data-choice="shell">Shell</button>
+        <button class="op" data-scenario="2" data-choice="c">C / C++ / Java</button>
+        <button class="op" data-scenario="2" data-choice="python">Python</button>
+      </div>
+      <div class="scenario-feedback" id="scenario2-feedback"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Why Python programs end up shorter</h3>
+    <p>Three concrete reasons, straight from the text — worth knowing verbatim-level, this comes up in "why Python" interview small talk:</p>
+    <ul>
+      <li><strong>High-level data types</strong> — a single statement can do what takes several lines in C (e.g. list operations, dict lookups).</li>
+      <li><strong>Indentation replaces braces</strong> — statement grouping is structural, not decorative.</li>
+      <li><strong>No variable or argument declarations</strong> — you don't state a type before using a name.</li>
+    </ul>
+  </div>
+
+  <div class="panel" id="feedback-loop">
+    <h3>Interpreted = fast feedback loop</h3>
+    <p>No compiling or linking before you run something. This is what makes the interactive prompt possible — you can experiment with a language feature, test a function mid-development, or use Python as "a handy desk calculator." The tradeoff (not mentioned much at this stage, but worth knowing) is raw execution speed vs. a compiled language — but for the class of problems Python targets, the development-speed win dominates.</p>
+
+    <div class="widget" style="background:transparent; border:none; padding:0; margin-top:10px;">
+      <div class="btn-row">
+        <button class="action" id="compareLoop">Compare ▶</button>
+        <button class="action secondary" id="resetLoop">Reset ↺</button>
+      </div>
+      <div class="loop-grid">
+        <div class="loop-col compiled">
+          <h4>Traditional compile loop</h4>
+          <div class="loop-step" data-step="0">WRITE</div>
+          <div class="loop-step" data-step="1">COMPILE</div>
+          <div class="loop-step" data-step="2">LINK</div>
+          <div class="loop-step" data-step="3">RUN</div>
+          <div class="loop-step" data-step="4">CHANGE</div>
+          <div class="loop-step" data-step="5">COMPILE AGAIN</div>
+        </div>
+        <div class="loop-col py">
+          <h4>Python</h4>
+          <div class="loop-step" data-step="0">WRITE</div>
+          <div class="loop-step" data-step="1">RUN</div>
+          <div class="loop-step" data-step="2">CHANGE</div>
+          <div class="loop-step" data-step="3">RUN</div>
+        </div>
+      </div>
+      <p class="explain">The point isn't that Python has zero implementation steps internally — it's that <em>your</em> write-test-change cycle skips compile and link entirely.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Extensible</h3>
+    <p>If you know C, you can add new built-in functions/modules to the interpreter — either for raw speed on critical operations, or to link Python to a library that only ships as compiled binaries. Taken further, you can embed the Python interpreter <em>inside</em> a C application as its extension/scripting language.</p>
+  </div>
+
+  <div class="panel">
+    <h3>The name</h3>
+    <p>Named after <strong>Monty Python's Flying Circus</strong>, the BBC comedy show — nothing to do with snakes. The docs explicitly say Monty Python references are encouraged, which is why example code sometimes uses "spam" and "eggs."</p>
+  </div>
+  </div>
+
+  <!-- ================= SECTION: FUNDAMENTALS ================= -->
+  <div class="section" id="fundamentals">
+  <h2><span class="num">03</span> Core Fundamentals at a Glance</h2>
+  <p class="lede">Still concepts, not a syntax course — but these are the building blocks every later section assumes you already recognize.</p>
+
+  <div class="fund-grid">
+    <div class="fund-card">
+      <h4>Dynamic, strong typing</h4>
+      <p>A name isn't declared with a type — it's just bound to a value, and that binding can change. But operations still respect the value's actual type (no silent <code>"2" + 2</code>).</p>
+      <div class="fund-chips"><span class="fund-chip">x = 5</span><span class="fund-chip">x = "now a string"</span></div>
+    </div>
+    <div class="fund-card">
+      <h4>Built-in high-level types</h4>
+      <p>The types that make Python programs short: sequences and mappings baked into the language itself, not bolted-on library classes.</p>
+      <div class="fund-chips">
+        <span class="fund-chip">int / float</span><span class="fund-chip">str</span><span class="fund-chip">bool</span>
+        <span class="fund-chip">list</span><span class="fund-chip">tuple</span><span class="fund-chip">dict</span><span class="fund-chip">set</span>
+      </div>
+    </div>
+    <div class="fund-card">
+      <h4>Indentation = structure</h4>
+      <p>Blocks (the body of an <code>if</code>, <code>for</code>, function, etc.) are defined by consistent indentation — not <code>{ }</code> or <code>begin/end</code>. This is enforced, not stylistic.</p>
+      <div class="fund-chips"><span class="fund-chip">4 spaces (PEP 8)</span><span class="fund-chip">no mixed tabs/spaces</span></div>
+    </div>
+    <div class="fund-card">
+      <h4>Control flow keywords</h4>
+      <p>A small, deliberately minimal set — Python favors one obvious way to branch and repeat over many overlapping ones.</p>
+      <div class="fund-chips">
+        <span class="fund-chip">if / elif / else</span><span class="fund-chip">for</span><span class="fund-chip">while</span>
+        <span class="fund-chip">break / continue</span><span class="fund-chip">try / except</span>
+      </div>
+    </div>
+    <div class="fund-card">
+      <h4>Functions as first-class objects</h4>
+      <p>Defined with <code>def</code>, functions can be passed around, stored in variables, and returned from other functions — same idea Section 1 briefly gestures at with "extensible" code reuse.</p>
+      <div class="fund-chips"><span class="fund-chip">def f(x):</span><span class="fund-chip">lambda x: x</span></div>
+    </div>
+    <div class="fund-card">
+      <h4>Everything is an object</h4>
+      <p>Numbers, strings, functions, modules — all objects with a type, living on the heap, referenced by name. This is why <code>type()</code> and <code>id()</code> work uniformly on anything.</p>
+      <div class="fund-chips"><span class="fund-chip">type(5)</span><span class="fund-chip">type(print)</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Why this matters before Section 2</h3>
+    <p>The interpreter sections that follow constantly assume you already know Python has no separate compile step and that names aren't typed — otherwise "type <code>2 + 3</code> and see <code>5</code> immediately" doesn't land as anything special.</p>
+  </div>
+  </div>
+
+  <!-- ================= SECTION 2A: INTERACTIVE MODE ================= -->
+  <div class="section" id="interactive">
+  <h2><span class="num">04</span> Interactive Mode</h2>
+  <p class="lede">Python can run two fundamentally different ways: reading commands one at a time from you (interactive mode), or reading an entire file at once (script mode). Section 2 is about how the interpreter behaves in each.</p>
+
+  <div class="widget" id="mental-model">
+    <div class="widget-label">The core mental model</div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:4px;">Every single thing Python does, at the top level, is one loop:</p>
+    <div class="pipeline">
+      <div class="pipe-step"><span class="t">YOUR CODE</span><span class="d">text you wrote</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">INTERPRETER</span><span class="d">reads it</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">EXECUTE</span><span class="d">runs it</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">OUTPUT</span><span class="d">what you see</span></div>
+    </div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-top:4px; margin-bottom:2px;">The only real difference between the two modes is <strong>how much code gets fed into that loop before it runs.</strong></p>
+
+    <div class="mode-toggle" style="margin-top:16px;">
+      <button class="op active" data-mode="interactive">Interactive mode</button>
+      <button class="op" data-mode="script">Script mode</button>
+    </div>
+    <div class="pipe-wrap" id="modeVisual"></div>
+  </div>
+
+  <div class="panel" id="prompts">
+    <h3>Two prompts</h3>
+    <p>In interactive mode, the <strong>primary prompt</strong> <code>&gt;&gt;&gt;</code> asks for a new command. The <strong>secondary prompt</strong> <code>...</code> appears when Python knows you're mid-way through a multi-line construct (like an unfinished <code>if</code> block) and is waiting for the rest.</p>
+  </div>
+
+  <div class="widget">
+    <div class="widget-label">Watch the prompts in action</div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:8px;">This is exactly what typing a multi-line <code>if</code> statement looks like at the interactive prompt.</p>
+    <div class="btn-row">
+      <button class="action" id="runTerminal">Type it out ▶</button>
+      <button class="action secondary" id="resetTerminal">Reset ↺</button>
+    </div>
+    <div class="terminal" id="promptTerminal">&nbsp;</div>
+
+    <div class="legend">
+      <div class="legend-row">
+        <span class="sym">&gt;&gt;&gt;</span>
+        <span><strong>Primary prompt</strong><br><span class="desc">"Python is ready for a new command."</span></span>
+      </div>
+      <div class="legend-row sec">
+        <span class="sym">...</span>
+        <span><strong>Secondary prompt</strong><br><span class="desc">"Python is waiting for the rest of this block."</span></span>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="action" id="startBlock">Start block ▶</button>
+      <button class="action secondary" id="resetBlock">Reset ↺</button>
+    </div>
+    <div class="terminal" id="blockTerminal" style="min-height:60px;">&nbsp;</div>
+    <p class="explain" id="blockExplain">Click "Start block" and step through — each click reveals the next line and says why that prompt appeared.</p>
+  </div>
+
+  <div class="panel">
+    <h3>Exiting the interpreter</h3>
+    <p><code>Ctrl-D</code> on Unix, <code>Ctrl-Z</code> then Enter on Windows (both send an end-of-file character) — or if that doesn't work, type <code>quit()</code>.</p>
+  </div>
+  </div>
+
+  <!-- ================= SECTION 2B: RUNNING & ARGS ================= -->
+  <div class="section" id="running">
+  <h2><span class="num">05</span> Running Scripts & Arguments</h2>
+  <p class="lede">Beyond typing at the prompt, there are a few standard ways to actually launch Python — each one changes what ends up in <code>sys.argv[0]</code>.</p>
+
+  <div class="panel">
+    <h3>The launch styles</h3>
+    <ul>
+      <li><code>python script.py arg1 arg2</code> — runs a script file, reading it top to bottom.</li>
+      <li><code>python -c "command"</code> — runs a snippet of code passed directly as a string. Quote it fully, since spaces are special to the shell.</li>
+      <li><code>python -m module arg1</code> — runs a module as if you'd typed its full path on the command line.</li>
+      <li><code>python -i script.py</code> — runs the script, then drops you into interactive mode afterwards (handy for inspecting variables post-run).</li>
+    </ul>
+  </div>
+
+  <div class="widget" id="argv-pipeline">
+    <div class="widget-label">sys.argv[0] explorer</div>
+    <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:8px;">Every launch style sets <code>sys.argv[0]</code> differently. Pick one and follow it through the pipeline.</p>
+    <div class="btn-row" id="argvButtons">
+      <button class="op active" data-mode="script">python app.py x y</button>
+      <button class="op" data-mode="dash">standard input ( - )</button>
+      <button class="op" data-mode="c">python -c "..."</button>
+      <button class="op" data-mode="m">python -m json.tool</button>
+      <button class="op" data-mode="none">no script, no args</button>
+    </div>
+
+    <div class="pipe-wrap">
+      <div class="pipeline compact">
+        <div class="pipe-step"><span class="t" id="pvCommand">python app.py x y</span><span class="d">command</span></div>
+        <div class="pipe-arrow">↓</div>
+        <div class="pipe-step"><span class="t" id="pvLaunch">script + args</span><span class="d">what launches</span></div>
+        <div class="pipe-arrow">↓</div>
+        <div class="pipe-step"><span class="t" id="pvArgv0">'app.py'</span><span class="d">sys.argv[0]</span></div>
+      </div>
+    </div>
+
+    <div class="result-line" id="argvResult">sys.argv → ['app.py', 'x', 'y']</div>
+    <div class="explain" id="argvExplain">Normal script launch: argv[0] is the script's own name, followed by whatever arguments came after it.</div>
+  </div>
+
+  <div class="panel" id="encoding">
+    <h3>Source file encoding</h3>
+    <p>Python source files default to <strong>UTF-8</strong>. To declare something else, put a special comment as the <em>first line</em> of the file: <code># -*- coding: encoding -*-</code>. One exception — if the file starts with a Unix shebang line (<code>#!/usr/bin/env python3</code>), the encoding comment goes on the <em>second</em> line instead, since the shebang has to stay first.</p>
+  </div>
+
+  <div class="code-label">code</div>
+  <pre><code class="language-python"># without a shebang — encoding declaration is line 1
+# -*- coding: cp1252 -*-
+
+# with a shebang — encoding declaration moves to line 2
+#!/usr/bin/env python3
+# -*- coding: cp1252 -*-</code></pre>
+  </div>
+
+  <!-- ================= SECTION: APPLICATIONS ================= -->
+  <div class="section" id="applications">
+  <h2><span class="num">06</span> Real-World Applications</h2>
+  <p class="lede">Section 1's own list ("automation, prototyping, glue between C/C++ libraries") was written in the early 1990s. Here's the same core idea — Python as the fast, low-friction layer — mapped onto where it actually shows up today.</p>
+
+  <div class="app-filter" id="appFilter">
+    <button class="op active" data-cat="all">All</button>
+    <button class="op" data-cat="core">Straight from Section 1</button>
+    <button class="op" data-cat="modern">Grew out of it since</button>
+  </div>
+
+  <div class="app-grid" id="appGrid">
+    <div class="app-card show" data-cat="core">
+      <div class="app-icon">🗂️</div>
+      <h4>Automation & scripting</h4>
+      <p>Exactly what Section 1 pitches Python for: file renaming, log parsing, glue scripts between other tools — no compile step, fast to iterate.</p>
+      <div class="app-tools">os · shutil · pathlib · subprocess</div>
+    </div>
+    <div class="app-card show" data-cat="core">
+      <div class="app-icon">🧪</div>
+      <h4>Testing & prototyping C/C++ libraries</h4>
+      <p>The other named use case: a quick throwaway test harness or prototype for a library, without the write/compile/test/re-compile loop.</p>
+      <div class="app-tools">ctypes · pytest · Cython</div>
+    </div>
+    <div class="app-card show" data-cat="core">
+      <div class="app-icon">🖥️</div>
+      <h4>Desktop GUIs & simple games</h4>
+      <p>Section 1 mentions "a simple game" as a legitimate Python use case, back when this meant small standalone desktop apps.</p>
+      <div class="app-tools">Tkinter · PyQt · Pygame</div>
+    </div>
+    <div class="app-card show" data-cat="modern">
+      <div class="app-icon">📊</div>
+      <h4>Data science & analytics</h4>
+      <p>Same "high-level types, fast iteration" pitch, now applied to exploring datasets instead of files — the interactive prompt is the whole point again.</p>
+      <div class="app-tools">pandas · NumPy · Jupyter</div>
+    </div>
+    <div class="app-card show" data-cat="modern">
+      <div class="app-icon">🤖</div>
+      <h4>Machine learning & AI</h4>
+      <p>Python is the interface layer here too — the heavy numerical work runs in compiled C/C++/CUDA underneath, called from readable Python, mirroring the "extensible" idea from Section 1.</p>
+      <div class="app-tools">PyTorch · TensorFlow · scikit-learn</div>
+    </div>
+    <div class="app-card show" data-cat="modern">
+      <div class="app-icon">🌐</div>
+      <h4>Web backends</h4>
+      <p>Full applications rather than one-off scripts, but still trading raw execution speed for development speed — the same tradeoff Section 1 names explicitly.</p>
+      <div class="app-tools">Django · Flask · FastAPI</div>
+    </div>
+    <div class="app-card show" data-cat="modern">
+      <div class="app-icon">⚙️</div>
+      <h4>DevOps & infrastructure</h4>
+      <p>Configuration management, deployment tooling, cloud SDKs — automation scripting scaled up to whole systems instead of single files.</p>
+      <div class="app-tools">Ansible · boto3 · Fabric</div>
+    </div>
+    <div class="app-card show" data-cat="modern">
+      <div class="app-icon">🎓</div>
+      <h4>Teaching first languages</h4>
+      <p>The same properties that made it a good "desk calculator" for Guido — minimal declarations, immediate feedback — are why it's now the most common first teaching language.</p>
+      <div class="app-tools">no build step · readable syntax</div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= QUIZ ================= -->
+  <div class="section" id="check">
+  <h2><span class="num">07</span> Check Yourself</h2>
+  <p class="lede">Predict your answer <em>before</em> clicking a choice — this only works as active recall if you commit first.</p>
+  <div class="quiz-score-bar">
+    <span>Accuracy: <span id="quizAccuracy">0 / 0</span></span>
+    <button class="action secondary" id="quizReset">Retry all ↺</button>
+  </div>
+  <div id="quizList"></div>
+
+  <!-- ================= INTERVIEW TRAPS ================= -->
+  <h3 style="margin-top:36px; font-size:16px; color:var(--yellow);">Interview Traps</h3>
+  <p class="lede" style="margin-bottom:16px;">Five questions that sound simple but catch people who only skimmed.</p>
+  <div id="trapList"></div>
+  </div>
+
+  <!-- ================= RECAP ================= -->
+  <div class="section" id="recap">
+  <h2><span class="num">08</span> Recap Table</h2>
+  <p class="lede" style="margin-top:-8px;">Your 2-minute revision sheet — scroll sideways on mobile.</p>
+  <div class="panel" style="overflow-x:auto;">
+    <table style="min-width:680px;">
+      <tr><th>Concept</th><th>Key fact</th><th>Mental model</th><th>Interview trap</th></tr>
+      <tr><td>Creator</td><td>Guido van Rossum, at CWI (Amsterdam)</td><td>One person's holiday project, not a committee</td><td>Not created by a company or standards body</td></tr>
+      <tr><td>Origin date</td><td>Started Dec 1989 · first release Feb 1991 (v0.9.0)</td><td>Successor to the ABC language</td><td>"Python 1.0" ≠ first release — that was 1994</td></tr>
+      <tr><td>Governance</td><td>BDFL until 2018, now PSF + Steering Council</td><td>Guido stepped back voluntarily</td><td>He didn't leave Python entirely, just the BDFL role</td></tr>
+      <tr><td>Core data types</td><td>int, float, str, bool, list, tuple, dict, set</td><td>Built into the language, not library add-ons</td><td>Dynamically typed ≠ untyped — values still have real types</td></tr>
+      <tr><td>Applications</td><td>Automation → data/ML → web backends, in that historical order</td><td>Same "fast iteration" pitch, new domains</td><td>Section 1's examples are dated but the reasoning still generalizes</td></tr>
+      <tr><td>Why Python</td><td>No compile step, high-level types, less boilerplate</td><td>CODE → INTERPRETER → OUTPUT, no compile stage</td><td>"Faster" means dev speed, not raw execution speed</td></tr>
+      <tr><td>Blocks</td><td>Indentation, not <code>{ }</code></td><td>Whitespace <em>is</em> structure</td><td>Mixed tabs/spaces silently breaks blocks</td></tr>
+      <tr><td>Declarations</td><td>No type/variable declarations</td><td>Names just point at values</td><td>Not statically typed ≠ no types exist</td></tr>
+      <tr><td>Extensible</td><td>Add C modules to the interpreter, or embed Python in C</td><td>Two-way bridge, not one-way</td><td>"Extensible" ≠ "written in Python"</td></tr>
+      <tr><td>Name origin</td><td>Monty Python's Flying Circus</td><td>—</td><td>Logo snake ≠ name origin</td></tr>
+      <tr><td>Primary prompt</td><td><code>&gt;&gt;&gt;</code> — new command</td><td>"I'm ready"</td><td>Shown even mid-expression sometimes confused with secondary</td></tr>
+      <tr><td>Secondary prompt</td><td><code>...</code> — mid multi-line construct</td><td>"Still waiting on you"</td><td>Blank line needed to close the block, not just Enter</td></tr>
+      <tr><td>Exit interpreter</td><td>Ctrl-D (Unix) / Ctrl-Z (Windows) / <code>quit()</code></td><td>Sends end-of-file</td><td>Ctrl-C interrupts, doesn't exit</td></tr>
+      <tr><td><code>python -c</code></td><td>Runs a quoted snippet directly</td><td>argv[0] becomes <code>'-c'</code></td><td>Confused with <code>-m</code> constantly</td></tr>
+      <tr><td><code>python -m</code></td><td>Runs a module as a script</td><td>argv[0] becomes the module's full path</td><td>Not the same as importing the module</td></tr>
+      <tr><td><code>python -i</code></td><td>Runs script, then stays interactive</td><td>Script mode → interactive mode, in sequence</td><td>Variables from the script persist after</td></tr>
+      <tr><td>Default encoding</td><td>UTF-8</td><td>Declared once, applies to whole file</td><td>Identifiers still conventionally ASCII-only</td></tr>
+      <tr><td>Encoding declaration</td><td>Line 1, or line 2 if a shebang is present</td><td>Shebang always wins line 1</td><td>Declaring it after line 2 is silently ignored</td></tr>
+    </table>
+  </div>
+  <footer>sections 1–2, revision pass · concepts before syntax</footer>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script>
+hljs.highlightAll();
+
+/* ============ QUICK SCAN JUMP ============ */
+document.querySelectorAll('.chip-nav').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const target = document.getElementById(chip.dataset.jump);
+    if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+});
+
+/* ============ EXECUTION MENTAL MODEL ============ */
+const modeVisual = document.getElementById('modeVisual');
+const modeButtons = document.querySelectorAll('.mode-toggle .op');
+
+const modeViews = {
+  interactive: `
+    <div class="pipeline compact">
+      <div class="pipe-step"><span class="t">&gt;&gt;&gt;</span><span class="d">one line</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">EXECUTE</span><span class="d">immediately</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">RESULT</span><span class="d">shown at once</span></div>
+    </div>
+    <pre style="margin-top:14px;"><code class="language-python">&gt;&gt;&gt; 2 + 3
+5
+&gt;&gt;&gt; print("Hello")
+Hello</code></pre>
+    <p class="explain">Every line is read and run the moment you hit Enter — one round trip per line.</p>
+  `,
+  script: `
+    <div class="pipeline compact">
+      <div class="pipe-step"><span class="t">app.py</span><span class="d">whole file</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">python app.py</span><span class="d">reads it all</span></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><span class="t">OUTPUT</span><span class="d">after full run</span></div>
+    </div>
+    <pre style="margin-top:14px;"><code class="language-python"># app.py
+print(2 + 3)
+print("Hello")
+
+# terminal:
+# $ python app.py
+# 5
+# Hello</code></pre>
+    <p class="explain">The whole file is handed to the interpreter first, then it executes top to bottom — you see output only once it runs.</p>
+  `
+};
+
+function renderMode(mode){
+  modeVisual.innerHTML = modeViews[mode];
+  hljs.highlightAll();
+}
+modeButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    modeButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderMode(btn.dataset.mode);
+  });
+});
+renderMode('interactive');
+
+/* ============ SCENARIO PICKER ============ */
+const scenarioAnswers = {
+  1: {
+    correct: 'python',
+    feedback: {
+      shell: {cls:'ok', text:"Shell handles simple renames fine, but the tutorial's own point is that shell scripts are 'best at moving around files and changing text data, not well-suited' once the logic gets complicated. 'Non-trivial rearrangement logic' is exactly where it starts to strain."},
+      c: {cls:'ok', text:"C/C++/Java can absolutely do this, but the write/compile/test/re-compile cycle is real overhead for what's fundamentally a one-off file-shuffling task — Section 1 calls this out directly as too slow for this class of problem."},
+      python: {cls:'good', text:"Correct. This is the canonical Section 1 example — automating a file-management task that's too complex for a shell one-liner but not worth a full C/C++ build cycle. High-level types (like Python's lists/dicts) make the 'complicated rearrangement logic' part easy too."}
+    }
+  },
+  2: {
+    correct: 'python',
+    feedback: {
+      shell: {cls:'ok', text:"Shell can drive a test suite, but Section 1 specifically frames 'writing testing code' for a C/C++/Java library as tedious precisely because shell isn't a real programming language with the structure a growing test suite needs."},
+      c: {cls:'ok', text:"This is literally the problem Section 1 describes: 'the usual write/compile/test/re-compile cycle is too slow' when you're testing a C/C++/Java library — using the same language you're testing just re-imports that slowness."},
+      python: {cls:'good', text:"Correct. Section 1 names this exact scenario: Python as a fast-iteration test/extension language for C/C++/Java libraries, precisely because it skips their slow compile-test-recompile loop."}
+    }
+  }
+};
+
+document.querySelectorAll('[id^="scenario"]').forEach(row=>{
+  if(!row.id.startsWith('scenario') || row.id.includes('feedback')) return;
+  row.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const sc = btn.dataset.scenario;
+      const choice = btn.dataset.choice;
+      row.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const fb = document.getElementById(`scenario${sc}-feedback`);
+      const data = scenarioAnswers[sc].feedback[choice];
+      fb.className = 'scenario-feedback show ' + data.cls;
+      fb.textContent = data.text;
+    });
+  });
+});
+
+/* ============ FEEDBACK LOOP ANIMATION ============ */
+const compareBtn = document.getElementById('compareLoop');
+const resetLoopBtn = document.getElementById('resetLoop');
+let loopTiming = null;
+
+function resetLoopSteps(){
+  document.querySelectorAll('.loop-step').forEach(el=>el.classList.remove('lit'));
+}
+compareBtn.addEventListener('click', ()=>{
+  resetLoopSteps();
+  clearTimeout(loopTiming);
+  const compiledSteps = document.querySelectorAll('.loop-col.compiled .loop-step');
+  const pySteps = document.querySelectorAll('.loop-col.py .loop-step');
+  let i = 0;
+  function tick(){
+    if(i < compiledSteps.length) compiledSteps[i].classList.add('lit');
+    if(i < pySteps.length) pySteps[i].classList.add('lit');
+    i++;
+    if(i <= compiledSteps.length){ loopTiming = setTimeout(tick, 420); }
+  }
+  tick();
+});
+resetLoopBtn.addEventListener('click', ()=>{ clearTimeout(loopTiming); resetLoopSteps(); });
+
+/* ============ INTERACTIVE PROMPT TYPEWRITER ============ */
+const promptTerminal = document.getElementById('promptTerminal');
+const runBtn = document.getElementById('runTerminal');
+const resetBtn = document.getElementById('resetTerminal');
+
+const transcript = [
+  {cls:'prompt', text:'>>> '},
+  {cls:'', text:'the_world_is_flat = True\n'},
+  {cls:'prompt', text:'>>> '},
+  {cls:'', text:'if the_world_is_flat:\n'},
+  {cls:'cont', text:'...     '},
+  {cls:'', text:'print("Be careful not to fall off!")\n'},
+  {cls:'cont', text:'... \n'},
+  {cls:'out', text:'Be careful not to fall off!\n'},
+  {cls:'prompt', text:'>>> '},
+];
+
+let typing = false;
+async function typeTranscript(){
+  if(typing) return;
+  typing = true;
+  runBtn.disabled = true;
+  promptTerminal.innerHTML = '';
+  for(const chunk of transcript){
+    const span = document.createElement('span');
+    if(chunk.cls) span.className = chunk.cls;
+    promptTerminal.appendChild(span);
+    for(const ch of chunk.text){
+      span.textContent += ch;
+      await new Promise(r=>setTimeout(r, ch===' '?4:14));
+    }
+  }
+  typing = false;
+  runBtn.disabled = false;
+}
+runBtn.addEventListener('click', typeTranscript);
+resetBtn.addEventListener('click', ()=>{ promptTerminal.innerHTML = '&nbsp;'; });
+
+/* ============ STEP-BY-STEP BLOCK BUILDER ============ */
+const blockTerminal = document.getElementById('blockTerminal');
+const blockExplain = document.getElementById('blockExplain');
+const startBlockBtn = document.getElementById('startBlock');
+const resetBlockBtn = document.getElementById('resetBlock');
+
+const blockSteps = [
+  {line:'>>> if the_world_is_flat:\n', cls:'prompt', note:'Primary prompt >>> — a brand new command. This one is incomplete (it ends in :), so Python knows more is coming.'},
+  {line:'...     print("Be careful!")\n', cls:'cont', note:'Secondary prompt ... appears — Python is waiting for the body of the if block.'},
+  {line:'... \n', cls:'cont', note:'A blank line at the secondary prompt tells Python "that\'s the whole block" — this is what actually closes it.'},
+  {line:'Be careful!\n', cls:'out', note:'Now Python executes the whole block at once and shows the result.'},
+];
+let blockIdx = 0;
+
+function renderBlockStep(){
+  if(blockIdx===0){ blockTerminal.innerHTML = '&nbsp;'; }
+  const step = blockSteps[blockIdx];
+  if(!step){
+    blockExplain.textContent = 'Done — that\'s a full request/response cycle at the interactive prompt.';
+    startBlockBtn.disabled = true;
+    return;
+  }
+  const span = document.createElement('span');
+  span.className = step.cls;
+  span.textContent = step.line;
+  if(blockTerminal.innerHTML === '&nbsp;') blockTerminal.innerHTML = '';
+  blockTerminal.appendChild(span);
+  blockExplain.textContent = step.note;
+  blockIdx++;
+  if(blockIdx >= blockSteps.length) startBlockBtn.disabled = true;
+}
+startBlockBtn.addEventListener('click', renderBlockStep);
+resetBlockBtn.addEventListener('click', ()=>{
+  blockIdx = 0;
+  blockTerminal.innerHTML = '&nbsp;';
+  startBlockBtn.disabled = false;
+  blockExplain.textContent = 'Click "Start block" and step through — each click reveals the next line and says why that prompt appeared.';
+});
+
+/* ============ sys.argv EXPLORER ============ */
+const argvButtons = document.querySelectorAll('#argvButtons .op');
+const argvResult = document.getElementById('argvResult');
+const argvExplain = document.getElementById('argvExplain');
+const pvCommand = document.getElementById('pvCommand');
+const pvLaunch = document.getElementById('pvLaunch');
+const pvArgv0 = document.getElementById('pvArgv0');
+
+const argvModes = {
+  script: {
+    command: `python app.py x y`,
+    launch: `script: app.py, args: x, y`,
+    argv0: `'app.py'`,
+    result: `sys.argv → ['app.py', 'x', 'y']`,
+    explain: "Normal script launch: argv[0] is the script's own name, followed by whatever arguments came after it."
+  },
+  dash: {
+    command: `python - < input`,
+    launch: `reads from standard input`,
+    argv0: `'-'`,
+    result: `sys.argv → ['-']`,
+    explain: `When the script name is given as '-' (meaning read from standard input), argv[0] is literally set to '-'.`
+  },
+  c: {
+    command: `python -c "print(1)"`,
+    launch: `runs the quoted string directly`,
+    argv0: `'-c'`,
+    result: `sys.argv → ['-c', ...rest]`,
+    explain: `python -c command sets argv[0] to the literal string '-c'. Anything after the command string is left in argv for your code to read.`
+  },
+  m: {
+    command: `python -m json.tool`,
+    launch: `locates module json.tool`,
+    argv0: `'/.../json/tool.py'`,
+    result: `sys.argv → ['/path/to/json/tool.py', ...]`,
+    explain: `python -m module sets argv[0] to the full located path of that module, not just its short name.`
+  },
+  none: {
+    command: `python`,
+    launch: `no script, no args given`,
+    argv0: `''`,
+    result: `sys.argv → ['']`,
+    explain: `With no script and no arguments, argv[0] is an empty string — the list always has at least one item.`
+  },
+};
+
+function renderArgv(mode){
+  const m = argvModes[mode];
+  pvCommand.textContent = m.command;
+  pvLaunch.textContent = m.launch;
+  pvArgv0.textContent = m.argv0;
+  argvResult.textContent = m.result;
+  argvExplain.textContent = m.explain;
+}
+argvButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    argvButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderArgv(btn.dataset.mode);
+  });
+});
+renderArgv('script');
+
+/* ============ PREDICT-BEFORE-REVEAL QUIZ ============ */
+const quizQuestions = [
+  {
+    q: `Who created Python, and where?`,
+    choices: [
+      'A committee at Sun Microsystems',
+      'Guido van Rossum, at CWI in Amsterdam',
+      'Guido van Rossum, at Google'
+    ],
+    correct: 1,
+    explain: "Python was a solo hobby project by Guido van Rossum, started in December 1989 while he worked at CWI (Centrum Wiskunde & Informatica) in the Netherlands — well before Google existed."
+  },
+  {
+    q: `Python's design is a direct successor to which earlier language?`,
+    choices: ['ABC', 'Perl', 'Modula-3'],
+    correct: 0,
+    explain: "Python was conceived as a successor to ABC, aiming to keep ABC's readability while fixing its lack of extensibility."
+  },
+  {
+    q: `What does Python display?`,
+    code: `&gt;&gt;&gt; 2 + 3`,
+    choices: ['5', '23', 'Error'],
+    correct: 0,
+    explain: "Interactive mode evaluates the expression immediately and shows the result — no print() needed at the prompt."
+  },
+  {
+    q: `Why does the ... secondary prompt appear after typing "if the_world_is_flat:" and pressing Enter?`,
+    choices: [
+      'Python found a syntax error',
+      'Python is waiting for the rest of the block',
+      'Python finished running the command'
+    ],
+    correct: 1,
+    explain: "The line ends in a colon, so Python knows the statement is incomplete and switches to the secondary prompt until you finish (and add a blank line to close) the block."
+  },
+  {
+    q: `Running python -c "print(1)" — what does sys.argv[0] equal?`,
+    choices: [`'print(1)'`, `'-c'`, `''`],
+    correct: 1,
+    explain: `python -c command always sets argv[0] to the literal string '-c', regardless of what the command itself contains.`
+  },
+  {
+    q: `Which of these is the real advantage of Python being interpreted, as Section 1 frames it?`,
+    choices: [
+      'It runs faster than compiled C code',
+      'It skips the compile/link step, speeding up development iteration',
+      'It has no internal execution steps at all'
+    ],
+    correct: 1,
+    explain: "The claim is about development speed (write → run → change → run), not raw execution speed — compiled languages are still typically faster to run."
+  },
+  {
+    q: `A source file starts with #!/usr/bin/env python3 as its very first line. Where must the # -*- coding: ... -*- comment go?`,
+    choices: ['Line 1, above the shebang', 'Line 2, right after the shebang', 'Anywhere in the first 5 lines'],
+    correct: 1,
+    explain: "The shebang line must stay first so the OS recognizes the file as executable — the encoding declaration is pushed to line 2 in that case."
+  },
+  {
+    q: `Which best describes what "Python is extensible" means in Section 1's sense?`,
+    choices: [
+      'You can write Python programs that grow arbitrarily large',
+      'You can add C-implemented functions/modules to the interpreter, or embed Python inside a C app',
+      'Third parties can extend the language\'s syntax freely'
+    ],
+    correct: 1,
+    explain: "It's specifically about the C ↔ Python bridge in both directions: adding native speed/binary-library access to Python, or embedding the interpreter as a scripting layer inside a C application."
+  },
+];
+
+const quizList = document.getElementById('quizList');
+const quizAccuracy = document.getElementById('quizAccuracy');
+const quizResetBtn = document.getElementById('quizReset');
+let quizCorrect = 0, quizAnswered = 0;
+
+function updateAccuracy(){
+  quizAccuracy.textContent = `${quizCorrect} / ${quizAnswered}`;
+}
+
+function buildQuiz(){
+  quizList.innerHTML = '';
+  quizCorrect = 0; quizAnswered = 0;
+  updateAccuracy();
+
+  quizQuestions.forEach((item, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.innerHTML = `
+      <div class="quiz-q">${idx+1}. ${item.q}</div>
+      ${item.code ? `<div class="terminal quiz-code">${item.code}</div>` : ''}
+      <div class="quiz-choices"></div>
+      <div class="quiz-feedback"></div>
+    `;
+    const choicesWrap = card.querySelector('.quiz-choices');
+    const feedback = card.querySelector('.quiz-feedback');
+
+    item.choices.forEach((choiceText, cIdx)=>{
+      const btn = document.createElement('button');
+      btn.className = 'quiz-choice';
+      btn.type = 'button';
+      btn.innerHTML = choiceText;
+      btn.addEventListener('click', ()=>{
+        if(card.dataset.answered) return;
+        card.dataset.answered = '1';
+        quizAnswered++;
+        const isCorrect = cIdx === item.correct;
+        if(isCorrect) quizCorrect++;
+        updateAccuracy();
+
+        choicesWrap.querySelectorAll('.quiz-choice').forEach((b,i)=>{
+          b.disabled = true;
+          if(i === item.correct) b.classList.add('correct');
+          else if(i === cIdx) b.classList.add('incorrect');
+        });
+
+        feedback.className = 'quiz-feedback show ' + (isCorrect ? 'correct' : 'incorrect');
+        feedback.innerHTML = `<span class="quiz-verdict">${isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>${item.explain}`;
+      });
+      choicesWrap.appendChild(btn);
+    });
+
+    quizList.appendChild(card);
+  });
+}
+quizResetBtn.addEventListener('click', buildQuiz);
+buildQuiz();
+
+/* ============ INTERVIEW TRAPS ============ */
+const traps = [
+  {q:"Why does ... appear instead of just continuing to accept input silently?", a:"It's Python explicitly signaling incomplete input — a deliberate UI cue that you're inside an unfinished block, not a generic 'still listening' indicator."},
+  {q:"What exactly is sys.argv[0]?", a:"Not 'the first argument' — it's whatever identifies how Python itself was invoked (script path, '-c', '-m''s resolved module path, '-', or ''). Real arguments start at argv[1]."},
+  {q:"What's the actual difference between python -c and python -m?", a:"-c runs a literal string of code you pass on the command line. -m locates and runs an installed module by name, as if you'd pointed directly at its file — these are not interchangeable."},
+  {q:"Why does Python's interactive prompt matter beyond convenience?", a:"It's what makes bottom-up, exploratory development possible — testing a function or a language feature in isolation before it goes into a script, with zero compile step in the way."},
+  {q:"What does \"extensible\" mean in this context, precisely?", a:"Two specific directions: adding C-implemented functionality into the Python interpreter, and embedding the Python interpreter into a C application as its scripting layer — not just 'you can write more Python code.'"},
+];
+
+const trapList = document.getElementById('trapList');
+traps.forEach(t=>{
+  const card = document.createElement('div');
+  card.className = 'trap-card';
+  card.innerHTML = `<div class="trap-q">${t.q}</div><div class="trap-a">${t.a}</div>`;
+  trapList.appendChild(card);
+});
+
+/* ============ VERSION TIMELINE ============ */
+const timelineData = [
+  {yr:'1989', label:'Origin', title:'December 1989 — the hobby project begins', text:'Guido van Rossum starts writing Python during the Christmas break at CWI, looking for a project to keep him occupied — a spare-time successor to ABC.'},
+  {yr:'1991', label:'v0.9.0', title:'February 1991 — first public release', text:'Posted to the alt.sources newsgroup. Already had functions, exception handling, core types (str, list, dict), and a module system.'},
+  {yr:'1994', label:'v1.0', title:'January 1994 — Python 1.0', text:'Added functional tools like lambda, map, filter, and reduce, borrowed conceptually from Lisp.'},
+  {yr:'2000', label:'v2.0', title:'October 2000 — Python 2.0', text:'Introduced list comprehensions and a cycle-detecting garbage collector; development moved to a more community-driven, public process.'},
+  {yr:'2008', label:'v3.0', title:'December 2008 — Python 3.0', text:'A deliberately backward-incompatible cleanup release (str/bytes separation, print as a function) — the source of the long, contentious 2-vs-3 migration era.'},
+  {yr:'2018', label:'BDFL exit', title:'July 2018 — Guido steps back', text:'Van Rossum announces he\'s stepping down as "Benevolent Dictator For Life." Governance moves to an elected Steering Council in 2019.'},
+  {yr:'2020', label:'Py2 EOL', title:'January 1, 2020 — Python 2 end-of-life', text:'Official end of support for the 2.x line, closing the migration era 3.0 kicked off 12 years earlier.'},
+];
+const timelineTrack = document.getElementById('timelineTrack');
+const timelineDetail = document.getElementById('timelineDetail');
+
+function renderTimelineDetail(idx){
+  const d = timelineData[idx];
+  timelineDetail.innerHTML = `<div class="td-title">${d.yr} — ${d.title.split('—')[1] ? d.title.split('—')[1].trim() : d.title}</div><p>${d.text}</p>`;
+  document.querySelectorAll('.timeline-dot').forEach((el,i)=>el.classList.toggle('active', i===idx));
+}
+timelineData.forEach((d, idx)=>{
+  const dot = document.createElement('div');
+  dot.className = 'timeline-dot' + (idx===0 ? ' active' : '');
+  dot.innerHTML = `<span class="yr">${d.yr}</span>${d.label}`;
+  dot.addEventListener('click', ()=>renderTimelineDetail(idx));
+  timelineTrack.appendChild(dot);
+});
+renderTimelineDetail(0);
+
+/* ============ APPLICATIONS FILTER ============ */
+const appFilterBtns = document.querySelectorAll('#appFilter .op');
+const appCards = document.querySelectorAll('#appGrid .app-card');
+appFilterBtns.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    appFilterBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const cat = btn.dataset.cat;
+    appCards.forEach(card=>{
+      card.classList.toggle('show', cat==='all' || card.dataset.cat===cat);
+    });
+  });
+});
+</script>
+</body>
+</html>
